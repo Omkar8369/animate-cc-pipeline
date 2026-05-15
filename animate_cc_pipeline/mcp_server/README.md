@@ -18,19 +18,78 @@ For every tool call:
    - Returns to Claude as the MCP response
 4. Claude sees the result and decides the next action
 
-## Animate.exe lifecycle
+## Animate.exe lifecycle (notes from Phase 3b)
 
-JSFL scripts are stateless from Animate's perspective — each
-invocation:
+JSFL scripts are stateless from Animate's perspective. Each
+invocation of `Animate.exe -AlwaysRunJSFL <script.jsfl>` does:
 
-- Boots Animate (or attaches to an existing instance — TBD in Phase 3b)
-- Opens / creates documents as the script directs
-- Performs operations
-- Optionally exits
+1. Boots Animate.exe (cold launch: ~10-30 seconds on first run,
+   ~3-8 seconds on subsequent launches in the same session due to
+   warm caches)
+2. Loads the specified JSFL script
+3. Executes it (synchronously from JSFL's perspective)
+4. Exits when the script ends (or stays open if the script opened a
+   document and didn't close it)
 
-We prefer **one long-lived Animate instance per Claude session** (boot
-once, reuse for many JSFL invocations) for performance. The MCP server
-manages this lifecycle. Phase 3b nails down the details.
+### Capture behavior
+
+- **stdout/stderr is typically empty.** Animate writes to its own
+  Output Panel (Window → Output), not the parent process's stdout.
+  Don't rely on captured output as a success signal.
+- **Exit code is not a reliable success signal either.** Animate may
+  return 0 on JSFL errors or non-zero on JSFL success (depends on
+  version and what the script did). The real signal is **whether the
+  script's expected side effect happened** (e.g., does the `.fla`
+  exist at the expected path? Does the output JSON file have the
+  expected schema?).
+
+### Path conventions
+
+Animate CC's JSFL `fl.saveDocumentAs` (and most `fl.*` document
+ops) expect **file:// URI paths** with forward slashes, not Windows
+backslash paths:
+
+```jsfl
+// WRONG: fl.saveDocumentAs(doc, "C:\\path\\to\\file.fla");  // may fail
+// RIGHT:
+var uri = FLfile.platformPathToURI("C:/path/to/file.fla");
+fl.saveDocumentAs(doc, uri);
+```
+
+JSFL templates in `jsfl_templates/` use `FLfile.platformPathToURI()`
+to convert. Python callers should pass forward-slash paths in
+substitutions to avoid double-escaping headaches.
+
+### Long-lived instance reuse (deferred)
+
+For Phase 3b each tool call spawns a fresh `Animate.exe`. This is
+slow (~10s boot per call). A future phase (likely Phase 3c or 3i)
+will keep a single Animate instance alive across many JSFL
+invocations using one of:
+
+- Animate's built-in `fl.runScript(URI)` JSFL call from inside an
+  already-running Animate session (requires AppleEvents / DDE
+  hooking)
+- A "command queue file" pattern: Python writes JSFL scripts to a
+  watched folder; a long-running JSFL polling loop inside Animate
+  picks them up
+- ExtendScript / ExtendScript Toolkit if compatible
+
+Until then, batch Animate operations carefully — don't make N tool
+calls when one larger JSFL script can do the work.
+
+### Known gotchas
+
+- **First-launch dialogs.** A fresh Animate install may pop dialogs
+  ("Welcome", license activation, tour). Run Animate manually once
+  to dismiss them before relying on `-AlwaysRunJSFL`.
+- **Modal dialogs hang JSFL.** If a script triggers an error dialog
+  (e.g., "Cannot save: read-only"), JSFL pauses waiting for user
+  click. The Python subprocess will hit its timeout. Always design
+  JSFL with try/catch + early file-write of an error JSON.
+- **Animate locks the .fla while open.** Closing with
+  `fl.closeDocument(doc, false)` releases the lock so Python can
+  read the file after.
 
 ## Configuration
 

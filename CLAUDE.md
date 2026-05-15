@@ -168,8 +168,8 @@ animate-cc-pipeline/
 
 | Phase | Title | Status |
 |-------|-------|--------|
-| 3a | Project scaffold + canonical files + 13 locked decisions | **In progress (this commit)** |
-| 3b | MCP server scaffold + hello-world JSFL | pending |
+| 3a | Project scaffold + canonical files + 13 locked decisions | **Shipped 2026-05-14** (commit `0440c04`) |
+| 3b | MCP server scaffold + hello-world JSFL | **In progress (this commit)** |
 | 3c | Document tools (open / save / import) | pending |
 | 3d | Symbol placement tools | pending |
 | 3e | Keyframe tools | pending |
@@ -381,6 +381,16 @@ them:
   Python is at `C:\Users\Omkar Hajare\Desktop\download\ComfyUI_windows_portable\python_embeded\python.exe`.
   All `run_*.py` wrappers must work under embedded Python (i.e., do
   the `sys.path` fixup pattern from the prior project's `run_node2.py`).
+- **Claude Code's MCP server launcher needs a Python path it can
+  find.** Since `python` isn't on PATH, the committed `.claude/settings.json`
+  uses generic `"command": "python"` for portability across machines,
+  but on this machine you must run
+  `python tools/phase3/setup_local_python.py` once to generate
+  `.claude/settings.local.json` (gitignored) with the embedded
+  Python's absolute path. The setup script auto-detects ComfyUI's
+  embedded Python if it's a sibling directory; pass `--python <path>`
+  to override. Re-run after moving the ComfyUI install or switching
+  machines.
 - **Shell: Git Bash primary; PowerShell available.** Forward-slash
   paths work in Git Bash + Python; backslash paths required for some
   Windows commands.

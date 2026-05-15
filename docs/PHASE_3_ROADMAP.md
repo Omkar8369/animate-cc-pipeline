@@ -27,7 +27,7 @@ ships.**
 
 ### Phase 3a — Project scaffold + canonical files + 13 locked decisions
 
-**Status:** In progress (2026-05-14)
+**Status:** Shipped 2026-05-14 (commit `0440c04`).
 
 **Ships:**
 
@@ -55,23 +55,42 @@ anywhere; all six canonical files reference each other consistently.
 
 ### Phase 3b — MCP server scaffold + hello-world JSFL
 
-**Status:** Pending
+**Status:** In progress (2026-05-14)
 
 **Ships:**
 
-- `mcp_server/server.py` boots and exposes one stub tool: `ping`
-  (returns `{ "status": "ok" }`)
-- `mcp_server/jsfl_bridge.py` can spawn `Animate.exe` with a "create
-  empty document, save to path, exit" JSFL script
-- First end-to-end smoke: Claude calls `ping` → MCP responds; Claude
-  calls `create_empty_doc(path)` → Animate creates a `.fla` file
-- Documents Animate.exe launch pattern, JSFL command-line flags,
-  exit codes, log file locations
-- Tests: `test_mcp_server_boots`, `test_jsfl_bridge_creates_empty_fla`
+- `animate_cc_pipeline/__init__.py` + `mcp_server/__init__.py` +
+  `tests/__init__.py` package inits
+- `mcp_server/server.py` MCP protocol handler exposing the `ping`
+  tool (returns `{ status, server_name, server_version, animate_cc_exe }`)
+- `mcp_server/jsfl_bridge.py` parameterized JSFL template runner;
+  resolves Animate.exe via `ANIMATE_CC_EXE` env var or default path;
+  escapes Windows backslashes for JSFL string literals
+- `mcp_server/jsfl_templates/hello_world.jsfl` creates a 1920×1080
+  25 FPS empty document and saves it via `FLfile.platformPathToURI`
+- `tests/test_mcp_server_boots.py` — unit tests (imports, list_tools,
+  call_tool, unknown-tool-error). No Animate.exe needed.
+- `tests/test_jsfl_bridge.py` — unit tests for template rendering +
+  optional integration test (gated by SKIP_ANIMATE_TESTS env var)
+- `tests/_smoke_phase3b.py` — end-to-end smoke script (manual run)
+- `tools/phase3/setup_local_python.py` — auto-detects ComfyUI
+  embedded Python (or system Python or env var) and writes
+  `.claude/settings.local.json` (gitignored) so Claude Code can
+  launch the MCP server on this machine
 
-**Phase 3b "done" criteria:** can verify from a clean machine
-(post-`pip install -r requirements.txt`) that Claude→MCP→Animate
-round-trip works.
+**Documentation updates:**
+
+- CLAUDE.md status table: 3a → Shipped, 3b → In Progress
+- CLAUDE.md environment gotcha: new entry on Python-finding via
+  `setup_local_python.py`
+- `mcp_server/README.md` extended with Animate.exe lifecycle notes
+  (boot time, JSFL invocation, exit code semantics, the URI gotcha)
+
+**Phase 3b "done" criteria:** unit tests pass via
+`<embedded python> -m pytest animate_cc_pipeline/tests/test_mcp_server_boots.py
+animate_cc_pipeline/tests/test_jsfl_bridge.py -v`. Smoke test
+`_smoke_phase3b.py` creates a `.fla` on disk via Animate.exe when
+run manually. Claude Code can call `ping` and receive a JSON response.
 
 ---
 
