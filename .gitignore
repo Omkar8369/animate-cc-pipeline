@@ -1,0 +1,90 @@
+# ─── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Claude Code ────────────────────────────────────────────────────
+# Session worktrees are local — never commit
+.claude/worktrees/
+# Other Claude Code local state (the global config IS committed)
+.claude/*.local.json
+.claude/cache/
+.claude/logs/
+
+# ─── Adobe Animate CC artifacts ─────────────────────────────────────
+# Animate temp / backup / lock files
+*.fla.bak
+*.fla.dvf
+*.fla.lock
+*.bak
+*~
+# Animate's auto-recovery files
+*.flarc
+
+# Animate render intermediates that we don't want in git
+animate_temp/
+*.tmp.swf
+
+# ─── Output / work dirs ─────────────────────────────────────────────
+# Per-run work directories typically live outside the repo, but if
+# the operator points --work-dir into the repo, ignore the outputs
+work/
+output/
+_pod_out/
+_local_out/
+
+# Generated JSFL scripts (always regenerated; not for commit)
+mcp_server/_generated_jsfl/
+*.generated.jsfl
+
+# ─── OS junk ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Editors / IDEs ────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Secrets / API keys ─────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+secrets/
+credentials.json
+*.pem
+*.key
+
+# ─── Large binary outputs ──────────────────────────────────────────
+# Final rendered MP4s — usually too big for git
+*_final.mp4
+*_draft.mp4
+# Keep small test MP4s OK (committed as test fixtures)
+!tests/fixtures/**/*.mp4
+
+# ─── Pose estimation outputs ───────────────────────────────────────
+# pose_map.json files are deterministic from the rough — regenerate
+# rather than commit, unless used as a test fixture
+*/pose_map.json
+!tests/fixtures/**/pose_map.json

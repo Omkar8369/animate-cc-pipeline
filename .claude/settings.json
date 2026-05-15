@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings",
+  "_comment": "Claude Code config for the Animate CC Pipeline. Commit this file so any device opening the repo gets the same MCP server registered. Local-only overrides go in .claude/settings.local.json (gitignored).",
+
+  "mcpServers": {
+    "animate-cc": {
+      "_phase": "Registered in Phase 3a; first real tool ships in Phase 3b. Until 3b ships, the server file does not exist and Claude Code will warn about a missing server — this is expected.",
+      "command": "python",
+      "args": [
+        "-m",
+        "animate_cc_pipeline.mcp_server.server"
+      ],
+      "env": {
+        "ANIMATE_CC_EXE": "C:\\Program Files\\Adobe\\Adobe Animate 2020\\Animate.exe",
+        "ANIMATE_TEMP_DIR": "",
+        "ANIMATE_LOG_LEVEL": "info"
+      }
+    }
+  },
+
+  "permissions": {
+    "_comment": "Allow Bash commands that are routinely needed for this pipeline: git ops, embedded Python invocations, file ops. Adjust per-device in settings.local.json if needed.",
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(ls:*)",
+      "Bash(pwd)",
+      "Bash(mkdir:*)",
+      "Bash(python:*)",
+      "Bash(pytest:*)"
+    ]
+  }
+}

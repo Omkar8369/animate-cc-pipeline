@@ -1,0 +1,46 @@
+# Animate CC Pipeline — Python dependencies
+#
+# Install via embedded Python (per CLAUDE.md environment gotcha):
+#   "C:\Users\Omkar Hajare\Desktop\download\ComfyUI_windows_portable\python_embeded\python.exe" \
+#       -m pip install -r requirements.txt
+#
+# Or on RunPod / Linux with standard Python:
+#   pip install -r requirements.txt
+
+# ─── Phase 3a (scaffold) ─────────────────────────────────────────────
+
+# MCP protocol (Anthropic) — server + client libraries
+mcp>=1.0,<2
+
+# Schema validation (used by Node 2 metadata loader, rig validator,
+# manifest schemas)
+pydantic>=2.5,<3
+
+# Image / video handling
+opencv-python>=4.8,<5
+numpy>=1.24,<2
+Pillow>=10.0,<12
+
+# ─── Phase 3b+ (added incrementally as phases ship) ─────────────────
+
+# Per-frame pose estimation (Phase 3j)
+# DWPose dependencies installed on the RunPod worker, NOT locally;
+# uncommenting these lines is the local-dev-only path:
+# torch>=2.5,<3
+# torchvision>=0.20,<1
+# matplotlib>=3.7,<4
+# scikit-image>=0.22,<1
+# onnxruntime>=1.16,<2
+
+# Video frame extraction (Phase 3c animatic import)
+imageio-ffmpeg>=0.5,<1
+
+# ─── Test deps ─────────────────────────────────────────────────────
+
+pytest>=8.0,<9
+pytest-mock>=3.12,<4
+
+# ─── Optional / dev ────────────────────────────────────────────────
+
+# Pinned-version sanity check helper for setup scripts
+packaging>=24.0
