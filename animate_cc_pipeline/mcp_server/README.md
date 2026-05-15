@@ -18,30 +18,69 @@ For every tool call:
    - Returns to Claude as the MCP response
 4. Claude sees the result and decides the next action
 
-## Animate.exe lifecycle (notes from Phase 3b)
+## Animate.exe lifecycle (notes from Phase 3b debugging)
 
-JSFL scripts are stateless from Animate's perspective. Each
-invocation of `Animate.exe -AlwaysRunJSFL <script.jsfl>` does:
+**Animate does NOT reliably exit on its own.** The Phase 3b spike
+turned up multiple ways `Animate.exe -AlwaysRunJSFL <script>` can
+"complete the work but stay running":
 
-1. Boots Animate.exe (cold launch: ~10-30 seconds on first run,
-   ~3-8 seconds on subsequent launches in the same session due to
-   warm caches)
-2. Loads the specified JSFL script
-3. Executes it (synchronously from JSFL's perspective)
-4. Exits when the script ends (or stays open if the script opened a
-   document and didn't close it)
+1. **`fl.quit()` is unreliable.** Animate 2020 shows a Welcome
+   screen / "save changes?" dialog / Creative Cloud sign-in that
+   silently blocks the quit. JSFL completes, but Animate.exe stays
+   resident at ~500 MB.
+2. **`fl.closeDocument(doc, false)` only closes the document pane**,
+   not the app.
+3. **Single-instance behavior.** If Animate.exe is already running
+   when we invoke `Animate.exe -AlwaysRunJSFL <script>`, the second
+   process delegates to the existing instance and exits
+   immediately — but the existing instance may or may not run the
+   JSFL depending on its state.
+
+So Phase 3b's `jsfl_bridge.run_jsfl_template` treats Animate as a
+**deterministic black-box renderer**:
+
+1. Force-kill any existing `Animate.exe` first (avoids the
+   delegation failure mode). Controlled by `kill_existing_first=True`.
+2. Launch Animate.exe via `subprocess.Popen` (non-blocking).
+3. Wait `boot_grace` seconds (default 5s) for Animate to boot.
+4. Poll filesystem for `expected_outputs` to appear (plus a
+   sentinel file the JSFL writes after its work). Polling interval
+   default 0.5s; timeout default 180s.
+5. Once all expected outputs exist, force-kill Animate.exe via
+   `taskkill /F /T /IM Animate.exe`.
+6. Return a `JsflResult` with `completed_normally=True` if all
+   outputs landed.
+
+This pattern doesn't depend on Animate ever exiting. The smoke
+typically lands the .fla + sentinel in ~15-25 seconds on a warm
+machine, including cold-boot of Animate.
+
+### Other gotchas discovered
+
+- **`fl.saveDocument(doc, fileURI)` vs `fl.saveDocumentAs(doc, fileURI)`.**
+  The two functions look interchangeable in the Adobe docs but
+  behave differently in Animate 2020:
+  - `fl.saveDocument(doc, URI)` → saves directly to URI. Returns
+    boolean. **This is what we use.**
+  - `fl.saveDocumentAs(doc, URI)` → IGNORES the URI parameter and
+    opens the interactive Save-As dialog. Hangs JSFL forever.
+- **`FLfile.platformPathToURI` returns Mac-style URIs** with `C|`
+  instead of `C:` (e.g., `file:///C|/path/to/file.fla`). This is
+  Adobe's legacy URI format from Flash. Looks weird but works.
+- **JSFL scripts run in the system temp dir (e.g.,
+  `C:\Users\OMKARH~1\AppData\Local\Temp\animate_mcp_*.jsfl`).** The
+  8.3 short name is fine; spaces in user-profile paths are
+  handled correctly by `FLfile.platformPathToURI`.
 
 ### Capture behavior
 
 - **stdout/stderr is typically empty.** Animate writes to its own
   Output Panel (Window → Output), not the parent process's stdout.
-  Don't rely on captured output as a success signal.
-- **Exit code is not a reliable success signal either.** Animate may
-  return 0 on JSFL errors or non-zero on JSFL success (depends on
-  version and what the script did). The real signal is **whether the
-  script's expected side effect happened** (e.g., does the `.fla`
-  exist at the expected path? Does the output JSON file have the
-  expected schema?).
+  The bridge doesn't rely on captured output as a success signal —
+  filesystem outputs are the contract.
+- **Exit code is not a reliable success signal.** We don't even let
+  Animate exit on its own; the bridge force-kills it after outputs
+  appear. The `JsflResult.exit_code` is `None` for the polling path.
 
 ### Path conventions
 
@@ -62,21 +101,14 @@ substitutions to avoid double-escaping headaches.
 
 ### Long-lived instance reuse (deferred)
 
-For Phase 3b each tool call spawns a fresh `Animate.exe`. This is
-slow (~10s boot per call). A future phase (likely Phase 3c or 3i)
-will keep a single Animate instance alive across many JSFL
-invocations using one of:
-
-- Animate's built-in `fl.runScript(URI)` JSFL call from inside an
-  already-running Animate session (requires AppleEvents / DDE
-  hooking)
-- A "command queue file" pattern: Python writes JSFL scripts to a
-  watched folder; a long-running JSFL polling loop inside Animate
-  picks them up
-- ExtendScript / ExtendScript Toolkit if compatible
-
-Until then, batch Animate operations carefully — don't make N tool
-calls when one larger JSFL script can do the work.
+For Phase 3b each tool call spawns a fresh `Animate.exe` and the
+bridge kills it after outputs land. Cold-boot is ~15-25s. A future
+phase (likely Phase 3c or 3i) will keep a single Animate instance
+alive across many JSFL invocations using a "command queue file"
+pattern: Python writes JSFL scripts to a watched folder; a
+long-running JSFL polling loop inside Animate picks them up. Until
+then, batch operations carefully — don't make N tool calls when one
+larger JSFL script can do the work.
 
 ### Known gotchas
 
@@ -85,11 +117,17 @@ calls when one larger JSFL script can do the work.
   to dismiss them before relying on `-AlwaysRunJSFL`.
 - **Modal dialogs hang JSFL.** If a script triggers an error dialog
   (e.g., "Cannot save: read-only"), JSFL pauses waiting for user
-  click. The Python subprocess will hit its timeout. Always design
-  JSFL with try/catch + early file-write of an error JSON.
+  click. The Python force-kill catches this — the bridge times out
+  and kills Animate, returning `completed_normally=False` with the
+  missing outputs reported.
 - **Animate locks the .fla while open.** Closing with
   `fl.closeDocument(doc, false)` releases the lock so Python can
   read the file after.
+- **Sentinel writes happen LAST in the JSFL.** Always write the
+  sentinel after the real output is on disk. Python's poll loop
+  waits for ALL expected outputs (the .fla AND the sentinel) before
+  killing Animate, so the order in JSFL is: do work → save outputs →
+  write sentinel → `fl.quit()` (best-effort).
 
 ## Configuration
 

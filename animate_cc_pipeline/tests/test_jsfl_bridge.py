@@ -3,7 +3,7 @@
 - Unit tests for template rendering + Animate.exe path resolution
   (no subprocess).
 - One integration test that actually spawns Animate.exe to create a
-  ``.fla``. Gated by:
+  .fla. Gated by:
     * ``SKIP_ANIMATE_TESTS=1`` env var (manual skip)
     * Missing Animate.exe on the machine (auto skip)
 
@@ -65,7 +65,6 @@ def test_render_template_multiple_keys():
 
 
 def test_render_template_non_string_value():
-    """Non-string substitution values get ``str()``-converted."""
     from animate_cc_pipeline.mcp_server.jsfl_bridge import _render_template
     template = "width={{W}};height={{H}};fps={{FPS}};"
     rendered = _render_template(
@@ -75,7 +74,6 @@ def test_render_template_non_string_value():
 
 
 def test_render_template_unknown_keys_left_alone():
-    """Placeholders without a matching key stay as ``{{KEY}}``."""
     from animate_cc_pipeline.mcp_server.jsfl_bridge import _render_template
     template = "{{A}}-{{B}}-{{C}}"
     rendered = _render_template(template, {"A": "x", "C": "z"})
@@ -93,10 +91,8 @@ def test_resolve_animate_exe_missing_path_raises(monkeypatch, tmp_path):
 
 
 def test_resolve_animate_exe_env_var_wins(monkeypatch, tmp_path):
-    """``ANIMATE_CC_EXE`` env var overrides the default path."""
     from animate_cc_pipeline.mcp_server.jsfl_bridge import _resolve_animate_exe
 
-    # Create a fake "Animate.exe" file the resolver will accept.
     fake_exe = tmp_path / "FakeAnimate.exe"
     fake_exe.write_text("not really animate, but exists")
     monkeypatch.setenv("ANIMATE_CC_EXE", str(fake_exe))
@@ -112,6 +108,24 @@ def test_run_jsfl_template_missing_template_raises(tmp_path):
         run_jsfl_template(tmp_path / "no_such.jsfl")
 
 
+def test_jsfl_result_shape():
+    """Sanity-check the JsflResult dataclass has all expected fields."""
+    from animate_cc_pipeline.mcp_server.jsfl_bridge import JsflResult
+
+    result = JsflResult(
+        completed_normally=True,
+        exit_code=0,
+        elapsed_seconds=1.5,
+        rendered_script="// jsfl",
+        jsfl_path="C:/tmp/x.jsfl",
+    )
+    assert result.completed_normally is True
+    assert result.exit_code == 0
+    assert result.elapsed_seconds == 1.5
+    assert result.missing_outputs == []
+    assert result.stdout == ""
+
+
 # ─── Integration test (actually spawns Animate.exe) ─────────────────
 
 
@@ -120,11 +134,10 @@ def test_run_jsfl_template_missing_template_raises(tmp_path):
     reason="SKIP_ANIMATE_TESTS=1 set in env",
 )
 def test_hello_world_creates_fla(tmp_path):
-    """End-to-end: render hello_world.jsfl, run via Animate, verify
-    output ``.fla`` exists.
+    """End-to-end: render hello_world.jsfl with sentinel polling,
+    verify both the .fla and sentinel land on disk.
 
-    Auto-skips if Animate.exe is not installed on this machine. Run
-    manually on a Windows box with Animate CC installed.
+    Auto-skips if Animate.exe is not installed on this machine.
     """
     from animate_cc_pipeline.mcp_server.jsfl_bridge import (
         run_jsfl_template,
@@ -145,22 +158,27 @@ def test_hello_world_creates_fla(tmp_path):
     assert template_path.exists(), f"missing template: {template_path}"
 
     output_fla = tmp_path / "phase3b_smoke.fla"
+    sentinel = tmp_path / "phase3b_smoke.done"
+
     # JSFL FLfile.platformPathToURI accepts forward-slash Windows paths.
-    output_path_for_jsfl = str(output_fla).replace("\\", "/")
+    output_for_jsfl = str(output_fla).replace("\\", "/")
+    sentinel_for_jsfl = str(sentinel).replace("\\", "/")
 
     result = run_jsfl_template(
         template_path,
-        substitutions={"OUTPUT_PATH": output_path_for_jsfl},
-        timeout=120,  # Animate boot can take 10-30s on first launch
+        substitutions={
+            "OUTPUT_PATH": output_for_jsfl,
+            "SENTINEL_PATH": sentinel_for_jsfl,
+        },
+        expected_outputs=[output_fla, sentinel],
+        poll_timeout=180.0,
+        boot_grace=5.0,
     )
 
-    # Animate.exe sometimes exits with non-zero even on success; the
-    # real signal is whether the .fla landed.
-    assert output_fla.exists(), (
-        f"Expected .fla at {output_fla} but it does not exist.\n"
-        f"exit_code: {result.exit_code}\n"
-        f"stdout: {result.stdout!r}\n"
-        f"stderr: {result.stderr!r}\n"
-        f"jsfl_path: {result.jsfl_path}\n"
+    assert result.completed_normally, (
+        f"Bridge reports failure.\n"
+        f"missing_outputs: {result.missing_outputs}\n"
+        f"elapsed: {result.elapsed_seconds:.1f}s\n"
     )
-    assert output_fla.stat().st_size > 0, "produced .fla is empty"
+    assert output_fla.exists() and output_fla.stat().st_size > 0, "produced .fla is missing/empty"
+    assert sentinel.exists(), "completion sentinel missing"

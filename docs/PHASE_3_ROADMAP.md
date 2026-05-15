@@ -53,9 +53,73 @@ anywhere; all six canonical files reference each other consistently.
 
 ---
 
+### Phase 3b-fixup-1 — Real-world Animate-launch fixes (2026-05-15)
+
+**Status:** In progress (this commit)
+
+**What turned up during Phase 3b validation:**
+
+1. **`fl.saveDocumentAs(doc, URI)` is broken in Animate 2020** — it
+   silently ignores the URI parameter and opens the interactive
+   Save-As dialog, hanging JSFL. The right call is
+   `fl.saveDocument(doc, URI)`. `hello_world.jsfl` updated.
+2. **`fl.quit()` doesn't actually exit Animate.** Welcome screens,
+   "save changes?" dialogs, and Creative Cloud sign-in prompts
+   silently block the quit. Animate.exe stays resident at ~500 MB.
+3. **Single-instance behavior.** When Animate is already running,
+   `Animate.exe -AlwaysRunJSFL <script>` delegates to the existing
+   instance and the new process exits immediately — the JSFL may
+   or may not run depending on the existing instance's state.
+4. **Smoke ran as a script fails on sys.path.** Running the smoke
+   via `python animate_cc_pipeline/tests/_smoke_phase3b.py` doesn't
+   add the repo root to sys.path; the `from animate_cc_pipeline...`
+   imports fail. Pytest adds it automatically but standalone scripts
+   need the same `sys.path.insert(0, repo_root)` pattern the prior
+   project's run_node*.py wrappers use.
+5. **`requirements.txt` upper bounds too tight.** numpy<2, Pillow<12,
+   pytest<9 forced pip to downgrade ComfyUI's already-newer installs
+   and rebuild from source on Python 3.13. The build backend
+   (`mesonpy`) isn't preinstalled. Upper bounds removed.
+
+**Architectural fix: sentinel-polling + force-kill pattern.**
+
+The bridge no longer waits for Animate to exit. Instead:
+- Force-kills any running `Animate.exe` before launch
+  (`kill_existing_first=True`)
+- Launches via `subprocess.Popen` (non-blocking)
+- Polls filesystem for `expected_outputs` (the real .fla + a
+  sentinel the JSFL writes)
+- Force-kills `Animate.exe` once outputs land
+
+This treats Animate as a deterministic black-box renderer. Smoke
+end-to-end now takes ~15-25s (cold boot Animate, run JSFL, save .fla,
+write sentinel, kill Animate).
+
+**Ships:**
+
+- `mcp_server/jsfl_bridge.py` — full rewrite around the
+  `expected_outputs` + polling design. `JsflResult` gains
+  `completed_normally`, `elapsed_seconds`, `missing_outputs` fields.
+  New helpers: `_kill_animate`, `_animate_running`. Backward-compat
+  fallback (no `expected_outputs` → subprocess.run wait-for-exit).
+- `mcp_server/jsfl_templates/hello_world.jsfl` — uses
+  `fl.saveDocument` (not `fl.saveDocumentAs`), writes a sentinel
+  file before `fl.quit()` (the quit is best-effort; Python kills
+  Animate regardless).
+- `tests/test_jsfl_bridge.py` — rewritten to match new bridge API.
+  17 unit tests pass; 1 integration test (gated by
+  `SKIP_ANIMATE_TESTS=1` env var or missing Animate.exe).
+- `tests/_smoke_phase3b.py` — sys.path fixup at top so it runs as
+  a standalone script. Uses new `expected_outputs` API with
+  sentinel.
+- `requirements.txt` — all upper bounds removed. Lower bounds only.
+- `mcp_server/README.md` — extended "Animate.exe lifecycle" section
+  with the actual gotchas discovered during the spike.
+
 ### Phase 3b — MCP server scaffold + hello-world JSFL
 
-**Status:** In progress (2026-05-14)
+**Status:** Shipped 2026-05-14 (commit `33aeb49`); functional after
+Phase 3b-fixup-1 (this commit, 2026-05-15).
 
 **Ships:**
 

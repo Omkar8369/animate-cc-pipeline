@@ -169,7 +169,7 @@ animate-cc-pipeline/
 | Phase | Title | Status |
 |-------|-------|--------|
 | 3a | Project scaffold + canonical files + 13 locked decisions | **Shipped 2026-05-14** (commit `0440c04`) |
-| 3b | MCP server scaffold + hello-world JSFL | **In progress (this commit)** |
+| 3b | MCP server scaffold + hello-world JSFL | **Shipped 2026-05-14** (commit `33aeb49`) + **fixup-1 2026-05-15** (this commit) |
 | 3c | Document tools (open / save / import) | pending |
 | 3d | Symbol placement tools | pending |
 | 3e | Keyframe tools | pending |
@@ -399,8 +399,22 @@ them:
   Configured via `ANIMATE_CC_EXE` env var (in `.claude/settings.json`);
   override if installing elsewhere.
 - **JSFL command-line invocation**:
-  `Animate.exe -AlwaysRunJSFL <path/to/script.jsfl>` runs the script
-  and exits. Output is whatever the script writes to disk.
+  `Animate.exe -AlwaysRunJSFL <path/to/script.jsfl>` runs the script.
+  BUT `fl.quit()` does NOT reliably exit Animate (Welcome screen,
+  "save changes?" dialog, sign-in modal all block it silently). The
+  JSFL bridge handles this by writing a sentinel file from JSFL,
+  polling for it from Python, then force-killing Animate.exe via
+  `taskkill /F /T /IM Animate.exe`. See `mcp_server/jsfl_bridge.py`
+  + `mcp_server/README.md` "Animate.exe lifecycle" section.
+- **`fl.saveDocument` vs `fl.saveDocumentAs` in JSFL.** The former
+  saves to a URI you pass in; the latter IGNORES the URI parameter
+  and opens the Save-As dialog, hanging JSFL. Always use
+  `fl.saveDocument(doc, URI)` for headless saves. Discovered in
+  Phase 3b-fixup-1.
+- **Single-instance Animate behavior.** If Animate.exe is already
+  running, a new `Animate.exe -AlwaysRunJSFL <script>` invocation
+  delegates to the existing instance. The bridge auto-kills any
+  running Animate before launch via `kill_existing_first=True`.
 - **Adobe CC is subscription, version-pinned.** If the operator
   upgrades to Animate 2024/2025, JSFL behavior should be backward-
   compatible; we'll add a compatibility test in Phase 3o.
