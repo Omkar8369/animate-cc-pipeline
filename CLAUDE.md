@@ -186,8 +186,8 @@ animate-cc-pipeline/
 | 3g | Tween tools | **Shipped 2026-05-16** (commit `56faa6b`) — all 3 tools verified end-to-end |
 | 3h | Audio + lipsync tools | **Shipped 2026-05-16** (commit `8e66a85`) — all 3 verified end-to-end; `apply_auto_lipsync` experimental (runs clean, Hindi-audio quality unverified) |
 | 3i | Camera + render tools | **Shipped 2026-05-16** (commit `e72bad2`) — all 3 tools verified end-to-end; first MP4 rendered. MCP server feature-complete. |
-| 3j | Per-frame pose estimation (Node 6) | **In progress (this commit)** — framework + mock + HTTP backends; DWPose local backend deferred (operator installs when needed) |
-| 3k | Pose → bone angle math | pending |
+| 3j | Per-frame pose estimation (Node 6) | **Shipped 2026-05-16** (commit `8372da8`) — framework + mock + HTTP backends; DWPose local + RunPod worker deferred to operator setup |
+| 3k | Pose → bone angle math | **In progress (this commit)** |
 | 3l | Orchestrator end-to-end (Node 7) | pending |
 | 3m | Camera move detection | pending |
 | 3n | Production batch runner | pending |

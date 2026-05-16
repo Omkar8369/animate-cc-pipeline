@@ -674,19 +674,48 @@ pure-Python, no Animate, ~5-10 sec for a full test run.
 
 ### Phase 3k — Pose → bone angle math
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
-**Ships:**
+**Scope** (placed under `pipeline/` not `orchestrator/` — the
+original roadmap predates the `pipeline/` package naming decided
+in Phase 3j):
 
-- `orchestrator/pose_to_bones.py`:
-  - `compute_bone_angles_from_pose(pose, rig_spec) → dict[bone_path → angle]`
-  - `compute_rig_position(pose, rig_spec) → (x, y)`
-    *(head-anchored)*
-  - `compute_rig_scale(pose, rig_spec) → float`
-    *(shoulder-width based)*
-- Unit tests on synthetic poses (known joint coordinates → known
-  bone angles)
-- Tests against the Phase 3f template rig
+- `pipeline/pose_to_bones.py` with:
+  - `RigSpec` dataclass — subset of the rig's `_metadata` JSON
+    relevant to pose-to-bones math (height, shoulder width, head
+    pivot offset, rotation strip frame count + angle step).
+  - `compute_bone_angle(parent_joint, child_joint) -> float | None`
+    helper — atan2-based angle in degrees, Animate stage convention.
+  - `compute_bone_angles_from_pose(pose, rig_spec) -> dict[str, float | None]`
+    — returns angle per named bone (`bone_arm_L_upper`,
+    `bone_arm_R_lower`, etc.). None for bones whose joints are
+    missing/low-confidence.
+  - `angle_to_rotation_strip_frame(angle_degrees, frame_count,
+    angle_step) -> int` — maps continuous angle to discrete
+    rotation-strip frame index 0..frame_count-1.
+  - `compute_rig_position(pose, rig_spec) -> tuple[float, float] | None`
+    — head-anchored: rig origin = nose_pos − head_pivot_offset.
+    Returns None if pose has no nose joint.
+  - `compute_rig_scale(pose, rig_spec) -> float | None`
+    — shoulder-width based: scale = pose_shoulder_width /
+    rig_default_shoulder_width. Returns None if either shoulder is
+    missing or default width is invalid.
+
+- `pipeline/__init__.py` updated to re-export the public API.
+
+- Tests in `animate_cc_pipeline/tests/test_pose_to_bones.py`:
+  - Angle math on synthetic joint pairs at known orientations
+    (horizontal = 0°, vertical down = 90°, etc.).
+  - Missing-joint handling.
+  - Rotation strip mapping correctness (0° → frame 0, 45° → frame 1,
+    90° → frame 2, etc., wraparound).
+  - Position + scale math on synthetic poses.
+
+**No Animate, no real pose model.** Pure-Python; tests run in
+seconds. ~20 unit tests.
+
+**Phase 3k done criteria**: all unit tests pass. The math is wired
+up for the orchestrator (Phase 3l) to call.
 
 ---
 
