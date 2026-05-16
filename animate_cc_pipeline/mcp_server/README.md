@@ -155,7 +155,7 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 |------|-------|-------|
 | `tools/document.py` | **3c (shipped)** | create_document, save_document, close_document, import_image_as_layer, import_video_as_layer |
 | `tools/symbol.py` | **3d (shipped)** | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation |
-| `tools/keyframe.py` | 3e | insert_keyframe, insert_blank_keyframe, remove_keyframe, get_keyframes |
+| `tools/keyframe.py` | **3e (shipped, partial)** | insert_keyframe, insert_blank_keyframe, get_keyframes, remove_keyframe (deferred — Animate 2020 hangs on clearKeyframes) |
 | `tools/bone.py` | 3f | list_bones, set_bone_angle, set_bone_position, set_graphic_first_frame |
 | `tools/tween.py` | 3g | add_motion_tween, add_classic_tween, set_easing |
 | `tools/audio.py` | 3h | import_audio, apply_auto_lipsync, set_switch_state |
@@ -202,6 +202,37 @@ bounding-box top-left, which shifts under rotation/scale; setting
 position last gives you back exactly what you set. The Phase 3d
 smoke verifies this round-trips through save+reopen with ~2px
 tolerance.
+
+### Phase 3e shipped tools (in detail)
+
+| Tool | Action | Status |
+|------|--------|--------|
+| `insert_keyframe(fla_path, layer_name, frame)` | Insert keyframe at frame (inherits prior content). Auto-extends layer if needed. | ✅ Verified |
+| `insert_blank_keyframe(fla_path, layer_name, frame)` | Insert blank keyframe at frame. Auto-extends layer. | ✅ Verified |
+| `get_keyframes(fla_path, layer_name)` | READ-only: return sorted list of 1-indexed keyframe positions on the layer | ✅ Verified |
+| `remove_keyframe(fla_path, layer_name, frame)` | Clear keyframe status (extend from prior). | ⚠️ Deferred — see gotcha #5 |
+
+**JSFL keyframe insertion approach**: Phase 3e settled on
+`Timeline.setSelectedLayers(idx) → Timeline.currentLayer = idx →
+Timeline.insertFrames(...)` to extend if needed →
+`Timeline.convertToKeyframes(start, end)` (or `convertToBlankKeyframes`
+for the blank variant). This pattern is more reliable than
+`Timeline.insertKeyframe(N)` which silently no-ops in some
+configurations.
+
+### Phase 3e gotcha #5 — clearKeyframes hangs in Animate 2020
+
+`Timeline.clearKeyframes(start, end)` AND the selection-based form
+`setSelectedFrames + clearKeyframes()` both hang JSFL on Animate
+2020 — likely behind an undismissable confirmation dialog. The
+bridge times out at 180s and force-kills Animate; the .fla is left
+unmodified.
+
+The `remove_keyframe` tool is shipped with this caveat in its
+description. Smoke skips its live verification. Likely works in
+Animate 2022+ (when we test that, the smoke can be flipped back
+on); for now the orchestrator (Phase 3l) plans an insert-heavy
+pipeline so this is acceptable for v1.
 
 ## JSFL templates
 

@@ -219,7 +219,13 @@ Phase 3i).
 
 ### Phase 3d — Symbol placement tools
 
-**Status:** In progress (2026-05-16)
+**Status:** Shipped 2026-05-16 (commit `a2df524`). 49 unit tests
+pass; smoke applies rotation 45°, scale 2.0, position (500, 300)
+to an imported image — readback after save/reopen confirms all
+three transforms survive within float-drift tolerance (~2px for
+position, ~0.01 for scale, ~0.1° for rotation). Wall time ~90s
+across 6 Animate launches. Gotcha #4 documented: apply transforms
+in order rotation → scale → position (position LAST).
 
 **Ships:**
 
@@ -279,18 +285,66 @@ cycle. Wall time ~80-120s (4-5 Animate launches in sequence).
 
 ### Phase 3e — Keyframe tools
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
 **Ships:**
 
-- `tools/keyframe.py` with:
-  - `insert_keyframe(layer, frame)`
-  - `insert_blank_keyframe(layer, frame)`
-  - `remove_keyframe(layer, frame)`
-  - `get_keyframes(layer)`
-- Smoke test: insert 5 keyframes with different symbol positions,
-  render as 5-frame MP4, verify each frame shows the right position
-- 6-8 unit tests
+- `tools/keyframe.py` with **4 MCP tools**:
+  - `insert_keyframe(fla_path, layer_name, frame)` — insert a keyframe
+    at given frame (inherits content from preceding keyframe). The
+    layer auto-extends if `frame` is past the layer's current end.
+  - `insert_blank_keyframe(fla_path, layer_name, frame)` — same shape
+    but starts the keyframe with no content (clean slate).
+  - `remove_keyframe(fla_path, layer_name, frame)` — clears the
+    keyframe status of `frame`, so that frame now extends from the
+    preceding keyframe. Does NOT delete the frame slot.
+  - `get_keyframes(fla_path, layer_name)` — READ-ONLY tool. Returns a
+    JSON list of 1-indexed frame numbers on which `layer_name` has
+    keyframes. Used by the orchestrator (and the smoke) to verify
+    keyframe placement after write tools.
+
+**Identification model**: layer name + 1-indexed frame number, same
+as Phase 3d. JSFL is 0-indexed internally; conversion handled in
+the templates.
+
+**`get_keyframes` JSON readback pattern**: the JSFL writes its result
+to a temp JSON file (path supplied as `{{OUT_JSON_PATH}}`); Python
+reads it and folds the content into the TextContent response. Same
+pattern as Phase 3d's verification helper.
+
+**JSFL templates** in `mcp_server/jsfl_templates/`:
+- `insert_keyframe.jsfl`
+- `insert_blank_keyframe.jsfl`
+- `remove_keyframe.jsfl`
+- `get_keyframes.jsfl`
+
+**Smoke test (`_smoke_phase3e.py`)**:
+1. `create_document` + `import_image_as_layer` (layer "BG", frame 1)
+2. `get_keyframes("BG")` → expect `[1]`
+3. `insert_keyframe("BG", frame=10)` → adds keyframe at 10
+4. `insert_blank_keyframe("BG", frame=20)` → adds blank at 20
+5. `get_keyframes("BG")` → expect `[1, 10, 20]`
+6. `remove_keyframe("BG", frame=10)` → clears keyframe at 10
+7. `get_keyframes("BG")` → expect `[1, 20]`
+
+**Tests**: ~14-18 unit tests covering registration, JSFL template
+placeholders, argument validation, dispatcher routing,
+`get_keyframes` JSON readback parsing.
+
+**Phase 3e "done" criteria**: unit tests pass; smoke completes the
+7-step round-trip with `get_keyframes` returning the expected lists.
+Wall time ~120-150s (7 Animate launches).
+
+**Phase 3e ship outcome (2026-05-16)**: 3 of 4 tools verified end-to-
+end on Animate 2020. `remove_keyframe` shipped with a known
+limitation — `Timeline.clearKeyframes` (both range and selection-
+based forms) hangs JSFL behind an undismissable dialog on this
+version. Tool description documents the limitation; smoke skips its
+live verification. Likely works on Animate 2022+; will be re-tested
+when the operator's environment upgrades. Two additional gotchas
+documented: `insertKeyframe` silently no-ops (workaround:
+`convertToKeyframes`), and `clearKeyframes` hangs. Defer
+`remove_keyframe` re-enablement to a future fixup phase.
 
 ---
 

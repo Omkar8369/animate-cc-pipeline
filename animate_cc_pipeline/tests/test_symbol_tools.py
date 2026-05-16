@@ -36,10 +36,16 @@ def test_server_lists_all_phase3d_tools():
     assert _all_tool_names() >= expected
 
 
-def test_server_version_bumped_for_phase3d():
+def test_server_version_at_least_0_3():
+    """Phase 3d bumped to >=0.3. Forward-compatible across later
+    phase bumps (same convention as the 0.2 guard from Phase 3c).
+    """
     from animate_cc_pipeline.mcp_server.server import SERVER_VERSION
-    assert SERVER_VERSION.startswith("0.3"), (
-        f"expected version 0.3.x for Phase 3d, got {SERVER_VERSION}"
+
+    parts = SERVER_VERSION.split(".")
+    major, minor = int(parts[0]), int(parts[1])
+    assert (major, minor) >= (0, 3), (
+        f"expected >=0.3.x for Phase 3d+, got {SERVER_VERSION}"
     )
 
 

@@ -171,8 +171,8 @@ animate-cc-pipeline/
 | 3a | Project scaffold + canonical files + 13 locked decisions | **Shipped 2026-05-14** (commit `0440c04`) |
 | 3b | MCP server scaffold + hello-world JSFL | **Shipped 2026-05-14** (commit `33aeb49`) + **fixup-1 2026-05-15** (commit `1b1660b`) |
 | 3c | Document tools (create / save / close / import image / import video) | **Shipped 2026-05-16** (commit `680b6f3`) |
-| 3d | Symbol placement tools | **In progress (this commit)** |
-| 3e | Keyframe tools | pending |
+| 3d | Symbol placement tools | **Shipped 2026-05-16** (commit `a2df524`) |
+| 3e | Keyframe tools | **In progress (this commit)** — 3 of 4 tools verified end-to-end; `remove_keyframe` shipped with known Animate 2020 limitation |
 | 3f | Bone tools + rig contract validator + template rig | pending |
 | 3g | Tween tools | pending |
 | 3h | Audio + lipsync tools | pending |
@@ -423,6 +423,22 @@ them:
   through save/reopen with ~1-2px float-drift. The orchestrator
   (Phase 3l) must follow this ordering when keyframing transforms
   per frame. Discovered in Phase 3d.
+- **Keyframe insertion uses `convertToKeyframes`, not
+  `insertKeyframe`.** `Timeline.insertKeyframe(N)` silently no-ops
+  in some configurations even when the layer is selected. The
+  reliable pattern is:
+  1. `timeline.currentLayer = idx; timeline.setSelectedLayers(idx);`
+  2. If frame past layer length: `timeline.insertFrames(N, false)`
+     to extend
+  3. `timeline.convertToKeyframes(frameIdx0, frameIdx0 + 1)`
+  Use `convertToBlankKeyframes` for the blank variant. Discovered
+  in Phase 3e.
+- **`Timeline.clearKeyframes` hangs in Animate 2020.** Both the
+  range and selection-based forms time out behind what appears to
+  be an undismissable confirmation dialog. The `remove_keyframe`
+  MCP tool is shipped for forward compat (likely works in
+  Animate 2022+) but its smoke is skipped in v1. The orchestrator
+  is insert-heavy, so this is acceptable. Discovered in Phase 3e.
 - **Single-instance Animate behavior.** If Animate.exe is already
   running, a new `Animate.exe -AlwaysRunJSFL <script>` invocation
   delegates to the existing instance. The bridge auto-kills any
