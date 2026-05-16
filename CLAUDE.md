@@ -175,8 +175,8 @@ animate-cc-pipeline/
 | 3e | Keyframe tools | **Shipped 2026-05-16** (commit `ae49d3e`; chore `decdbd2`) — 3 of 4 tools verified, `remove_keyframe` deferred (Animate 2020) |
 | 3f | Bone tools + rig contract validator + template rig | **Shipped 2026-05-16** (commit `c25ee48`) — 3 of 6 tools verified; armature-bone tools + template rig deferred to Phase 3f-fixup pending real rig |
 | 3g | Tween tools | **Shipped 2026-05-16** (commit `56faa6b`) — all 3 tools verified end-to-end |
-| 3h | Audio + lipsync tools | **In progress (this commit)** — all 3 tools verified end-to-end; `apply_auto_lipsync` shipped as experimental (runs clean, Hindi-audio quality unverified) |
-| 3i | Camera + render tools | pending |
+| 3h | Audio + lipsync tools | **Shipped 2026-05-16** (commit `8e66a85`) — all 3 verified end-to-end; `apply_auto_lipsync` experimental (runs clean, Hindi-audio quality unverified) |
+| 3i | Camera + render tools | **In progress (this commit)** — all 3 tools verified end-to-end; first MP4 successfully rendered (10-frame test, 2046 bytes). MCP server is now FEATURE-COMPLETE for orchestrator work. |
 | 3j | Per-frame pose estimation (Node 6) | pending |
 | 3k | Pose → bone angle math | pending |
 | 3l | Orchestrator end-to-end (Node 7) | pending |

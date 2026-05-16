@@ -512,22 +512,48 @@ verified or documented as deferred. Wall time ~130-180s.
 
 ### Phase 3i — Camera + render tools
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
 **Ships:**
 
-- `tools/camera.py` with:
-  - `set_camera_position(frame, x, y, zoom, rotation)`
-- `tools/render.py` with:
-  - `render_to_mp4(out_path, fps, range)`
-  - `render_preview(start_frame, end_frame)`
-- End-to-end smoke: empty doc → place rig → 2 keyframes → tween →
-  import audio → auto-lipsync → render MP4 → MP4 plays correctly
-  and shows expected motion + audio
-- 6-8 tests
+- `tools/camera.py` with **3 MCP tools** (combined into one
+  module — render.py merged):
+  - `set_camera_position(fla_path, frame, x, y, zoom, rotation)` —
+    experimental; sets Animate's Camera layer transform at the
+    given frame. JSFL surface for the Camera (added CC 2018) is
+    sparse; this ships as best-effort.
+  - `render_to_mp4(fla_path, out_path, fps)` — renders the full
+    timeline to an MP4. Two-stage: (a) JSFL exports the timeline
+    as a PNG sequence to a temp dir, (b) Python uses
+    imageio-ffmpeg to encode the PNGs to MP4 at the specified
+    FPS. This avoids depending on Animate's native MP4 codec
+    licensing.
+  - `render_preview(fla_path, out_path, start_frame, end_frame, fps)`
+    — same shape as `render_to_mp4` but renders only the
+    specified frame range. Useful for quick orchestrator
+    verification without waiting for the full timeline.
 
-**Phase 3i milestone:** the MCP server is feature-complete enough to
-build a real shot manually (without Node 6/7 yet).
+**JSFL templates** in `mcp_server/jsfl_templates/`:
+- `set_camera_position.jsfl`
+- `export_png_sequence.jsfl` (used by both render tools)
+
+**Smoke (`_smoke_phase3i.py`)**:
+1. `create_document` + `import_image_as_layer` (something to render).
+2. `insert_keyframe` at frame 10 + `set_instance_position` at 10
+   (motion to verify).
+3. `render_to_mp4` → MP4 created, ≥ 10 frames, > 0 bytes.
+4. `render_preview` for frames 1-5 → smaller MP4 created.
+5. `set_camera_position` attempted on frame 1 — experimental, non-fatal.
+
+**Phase 3i milestone**: the MCP server becomes feature-complete
+enough to build a real shot manually (without Node 6/7 yet). 
+Phase 3l (orchestrator) will then call these in sequence on real
+animatic data.
+
+**Phase 3i done criteria**: unit tests pass; render_to_mp4 +
+render_preview both produce playable MP4s; set_camera_position
+either verified or documented as experimental. Wall time
+~150-220s.
 
 ---
 

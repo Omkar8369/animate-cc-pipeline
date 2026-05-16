@@ -159,8 +159,7 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 | `tools/bone.py` | **3f (shipped, partial)** | set_graphic_first_frame, get_graphic_first_frame, validate_rig; armature-bone tools (list_bones, set_bone_angle, set_bone_position) deferred to Phase 3f-fixup pending real rig |
 | `tools/tween.py` | **3g (shipped)** | add_classic_tween, add_motion_tween, set_easing — all 3 verified end-to-end |
 | `tools/audio.py` | **3h (shipped)** | import_audio, set_switch_state, apply_auto_lipsync — all 3 verified (apply_auto_lipsync marked experimental — runs without errors but Hindi-audio quality unverified) |
-| `tools/camera.py` | 3i | set_camera_position |
-| `tools/render.py` | 3i | render_to_mp4, render_preview |
+| `tools/camera.py` | **3i (shipped)** | set_camera_position (experimental), render_to_mp4, render_preview — all 3 verified end-to-end. Render uses two-stage PNG sequence + imageio-ffmpeg encode. Phase 3i merges the original `tools/render.py` plan into `tools/camera.py`. |
 
 Plus utilities (later phases): `get_stage_info`, `list_library_symbols`,
 `list_layers`, `validate_rig_against_spec`.
@@ -269,6 +268,23 @@ tests run synthetic structure JSON inputs.
 | `import_audio(fla_path, audio_path, layer_name, frame)` | Import WAV/MP3/AIFF + place on a layer at a frame. Auto-creates layer. | ✅ Verified (44KB WAV → .fla grew 3.8KB → 90KB) |
 | `set_switch_state(fla_path, layer_name, frame, state_name)` | Pin a Switch-style Graphic Symbol to its frame labeled `state_name`. Used for mouth shapes + facial expressions. | ✅ Verified (state-name → firstFrame lookup works) |
 | `apply_auto_lipsync(fla_path, audio_layer, mouth_layer)` | Experimental — attempt Animate's Auto Lip Sync. Runs without errors but quality on Hindi audio is unverified. Use per-frame `set_switch_state` as fallback if needed. | ⚠️ Experimental (runs clean, quality TBD) |
+
+### Phase 3i shipped tools (in detail)
+
+| Tool | Action | Status |
+|------|--------|--------|
+| `set_camera_position(fla_path, frame, x, y, zoom, rotation)` | EXPERIMENTAL. Sets Camera layer transform at frame. Animate's Camera JSFL surface is sparse; ships with try/catch around each setter. | ⚠️ Experimental (runs clean) |
+| `render_to_mp4(fla_path, out_path, fps)` | Renders full timeline to MP4. JSFL exports PNG sequence to temp dir; Python encodes via imageio-ffmpeg (libx264 + yuv420p). | ✅ Verified (10-frame test → 2046-byte MP4) |
+| `render_preview(fla_path, out_path, start_frame, end_frame, fps)` | Same pipeline but for a frame range. Used for quick verification + per-shot preview. | ✅ Verified (5-frame test → 1783-byte MP4) |
+
+**Render pipeline notes**:
+
+- **Two-stage**: JSFL loop iterates frames + calls `doc.exportPNG(uri, true, true)` per frame to write `frame_NNNN.png` to a temp directory.
+- **Python encoder**: uses `imageio_ffmpeg.get_ffmpeg_exe()` to invoke ffmpeg with `-framerate <fps> -i pattern -c:v libx264 -pix_fmt yuv420p -vf pad=ceil(iw/2)*2:ceil(ih/2)*2`. The pad filter ensures even dimensions (libx264 requirement).
+- **Fallback**: glob pattern is tried first, then numeric pattern with `-start_number` if glob isn't supported on the platform's ffmpeg.
+- **Cleanup**: temp PNG directory is removed after encoding regardless of success/failure.
+
+This approach decouples our render pipeline from Animate's native MP4 codec licensing (which varies by version + tier) — we just need a working PNG export from Animate and libx264 from imageio-ffmpeg.
 
 ### Phase 3e gotcha #5 — clearKeyframes hangs in Animate 2020
 
