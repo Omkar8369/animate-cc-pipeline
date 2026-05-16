@@ -721,18 +721,62 @@ up for the orchestrator (Phase 3l) to call.
 
 ### Phase 3l — Orchestrator end-to-end (Node 7)
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
-**Ships:**
+**Scope** (relocated to `pipeline/orchestrator/` to fit the
+package layout established in Phase 3j):
 
-- `orchestrator/cli_node7_animate.py`:
-  - Reads Node 5 + Node 6 outputs
-  - Drives MCP server tool sequence per shot
-  - Produces `auto_animated.fla` + `draft.mp4`
-- `orchestrator/shot_processor.py` for the per-shot loop
-- `animate_assembly.json` manifest schema
-- Smoke test on ONE real TMKOC shot using the template rig
-- 8-10 tests
+- `pipeline/orchestrator/` — new sub-package.
+- `pipeline/orchestrator/assembly_schemas.py` — pydantic schemas:
+  - `CharacterConfig` (identity, rig_fla_path OR placeholder_image_path)
+  - `ShotConfig` (per-shot inputs)
+  - `ShotAssembly` (per-shot output report)
+  - `AssemblyReport` (aggregate across all shots in a batch)
+- `pipeline/orchestrator/shot_processor.py` — `process_shot(config)`
+  applies the recipe established by Phases 3c-3k:
+  1. create_document
+  2. import animatic reference video (rough MP4)
+  3. import background image
+  4. for each character:
+     a. import rig OR place placeholder image
+     b. for each keypose frame in pose_map:
+        - compute_rig_position + compute_rig_scale + bone_angles
+        - apply via set_instance_position / set_instance_scale +
+          set_graphic_first_frame per bone
+        - insert_keyframe
+     c. add classic tween between consecutive keyframes
+  5. import audio + apply_auto_lipsync (best-effort)
+  6. save_document
+  7. render_to_mp4
+  Returns a `ShotAssembly` with success flag + paths + per-step
+  timings + any soft-fail warnings.
+- `pipeline/orchestrator/cli_node7_animate.py` — CLI that drives
+  `process_shot` over a list of shots from the inputs.
+- `run_node7_animate.py` — repo-root wrapper.
+- Unit tests in `tests/test_orchestrator.py` — exercise
+  `process_shot` with **mocked MCP handlers** so they don't actually
+  launch Animate. Covers per-step ordering, error propagation, and
+  the assembly report shape.
+- End-to-end smoke `tests/_smoke_phase3l.py` — uses **real** MCP
+  handlers with **synthetic inputs**: PIL-generated background +
+  PIL-generated character "placeholder image" (instead of rig) +
+  mock-backend-derived pose_map. Verifies the full chain produces
+  a real MP4 with the expected frame count.
+
+**Deferred (operator handover / later phases)**:
+
+- Real TMKOC end-to-end: blocked on rigger commission (Phase 3o).
+- Multi-character z-order beyond `bbox.bottom_y`: keep simple ordering
+  for v1.
+- Camera move detection from rough animatic: Phase 3m.
+- Real lipsync: `apply_auto_lipsync` ships in the recipe but is
+  best-effort (per the experimental flag from Phase 3h).
+
+**Phase 3l done criteria**: unit tests pass on mocked handlers;
+smoke produces a real MP4 from synthetic data (placeholder image
+moves across the canvas over several frames). The orchestrator code
+is wired up to all 26 MCP tools + the pose-math module from 3k.
+Wall time ~140-180s for smoke (8-10 Animate launches).
 
 ---
 

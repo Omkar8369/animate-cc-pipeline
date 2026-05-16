@@ -187,8 +187,8 @@ animate-cc-pipeline/
 | 3h | Audio + lipsync tools | **Shipped 2026-05-16** (commit `8e66a85`) — all 3 verified end-to-end; `apply_auto_lipsync` experimental (runs clean, Hindi-audio quality unverified) |
 | 3i | Camera + render tools | **Shipped 2026-05-16** (commit `e72bad2`) — all 3 tools verified end-to-end; first MP4 rendered. MCP server feature-complete. |
 | 3j | Per-frame pose estimation (Node 6) | **Shipped 2026-05-16** (commit `8372da8`) — framework + mock + HTTP backends; DWPose local + RunPod worker deferred to operator setup |
-| 3k | Pose → bone angle math | **In progress (this commit)** |
-| 3l | Orchestrator end-to-end (Node 7) | pending |
+| 3k | Pose → bone angle math | **Shipped 2026-05-16** (commit `73feb60`) — 35 unit tests, pure-Python math |
+| 3l | Orchestrator end-to-end (Node 7) | **In progress (this commit)** — 14 unit tests + full end-to-end smoke green: orchestrator drove Animate through synthetic shot in 285s, produced real .fla + .mp4. **MAJOR MILESTONE — the pipeline now functions end-to-end.** |
 | 3m | Camera move detection | pending |
 | 3n | Production batch runner | pending |
 | 3o | First real-rig validation (Jethalal) | pending |

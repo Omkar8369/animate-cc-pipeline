@@ -51,3 +51,9 @@ Main code for the Animate CC Pipeline.
 ## Build status
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
+
+As of Phase 3l (2026-05-16): the orchestrator is operational
+end-to-end. `pipeline/orchestrator/shot_processor.py` drives
+the full MCP toolbelt against synthetic inputs and produces real
+`.fla` + `.mp4` outputs. Production wiring with real character
+rigs lands in Phase 3o (rigger commission).
