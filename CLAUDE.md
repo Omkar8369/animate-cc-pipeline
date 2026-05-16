@@ -439,6 +439,15 @@ them:
   MCP tool is shipped for forward compat (likely works in
   Animate 2022+) but its smoke is skipped in v1. The orchestrator
   is insert-heavy, so this is acceptable. Discovered in Phase 3e.
+- **`Timeline.convertToFrames` does NOT exist in Animate 2020.**
+  Tested as a workaround for `clearKeyframes` in a Phase 3e-fixup
+  attempt (2026-05-16). Animate threw `TypeError:
+  timeline.convertToFrames is not a function` on line 34 of the
+  rendered JSFL. The inverse operation is missing from Animate 2020's
+  Timeline API even though `convertToKeyframes` /
+  `convertToBlankKeyframes` exist. Adobe added `convertToFrames` in
+  a later version. Workaround attempt reverted; do NOT re-test this
+  on Animate 2020 — the answer is no.
 - **Single-instance Animate behavior.** If Animate.exe is already
   running, a new `Animate.exe -AlwaysRunJSFL <script>` invocation
   delegates to the existing instance. The bridge auto-kills any
