@@ -157,7 +157,7 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 | `tools/symbol.py` | **3d (shipped)** | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation |
 | `tools/keyframe.py` | **3e (shipped, partial)** | insert_keyframe, insert_blank_keyframe, get_keyframes, remove_keyframe (deferred — Animate 2020 hangs on clearKeyframes) |
 | `tools/bone.py` | **3f (shipped, partial)** | set_graphic_first_frame, get_graphic_first_frame, validate_rig; armature-bone tools (list_bones, set_bone_angle, set_bone_position) deferred to Phase 3f-fixup pending real rig |
-| `tools/tween.py` | 3g | add_motion_tween, add_classic_tween, set_easing |
+| `tools/tween.py` | **3g (shipped)** | add_classic_tween, add_motion_tween, set_easing — all 3 verified end-to-end |
 | `tools/audio.py` | 3h | import_audio, apply_auto_lipsync, set_switch_state |
 | `tools/camera.py` | 3i | set_camera_position |
 | `tools/render.py` | 3i | render_to_mp4, render_preview |
@@ -241,6 +241,26 @@ mouth/eye/eyebrow/face switch states, rotation-strip frame counts,
 `_metadata` JSON shape + identity match. Returns
 `ValidationReport` with per-rule `CheckResult`s. Pure-Python; unit
 tests run synthetic structure JSON inputs.
+
+### Phase 3g shipped tools (in detail)
+
+| Tool | Action | Status |
+|------|--------|--------|
+| `add_classic_tween(fla_path, layer_name, start_frame)` | Add Classic Tween starting at keyframe. Animate interpolates position/rotation/scale to next keyframe. Via `Timeline.createMotionTween()` (NOT direct `frame.tweenType =` which is read-only). | ✅ Verified |
+| `add_motion_tween(fla_path, layer_name, start_frame, end_frame)` | Create modern Motion Tween span via `Timeline.createMotionObject`. Tagged experimental, but verified working on Animate 2020. | ✅ Verified |
+| `set_easing(fla_path, layer_name, frame, easing)` | Set tweenEasing on starting keyframe of a tween. Range -100 (ease-in) to +100 (ease-out). Via `Timeline.setFrameProperty("tweenEasing", N, start, end)` (NOT direct assignment which silently no-ops). | ✅ Verified |
+
+**Phase 3g gotchas (two new ones)**:
+
+- **`Frame.tweenType` is read-only** in JSFL. Direct assignment
+  silently no-ops. Use `Timeline.createMotionTween()` after
+  selecting the layer + setting current frame to the starting
+  keyframe.
+- **`Frame.tweenEasing` direct assignment silently no-ops** despite
+  docs claiming it's read/write. The right setter is
+  `Timeline.setFrameProperty("tweenEasing", N, startFrame,
+  endFrame)`. Frame objects in JSFL appear to be immutable views
+  for tween properties.
 
 ### Phase 3e gotcha #5 — clearKeyframes hangs in Animate 2020
 

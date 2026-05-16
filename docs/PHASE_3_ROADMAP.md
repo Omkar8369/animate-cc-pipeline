@@ -424,17 +424,54 @@ rig. Wall time ~120-180s.
 
 ### Phase 3g — Tween tools
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
 **Ships:**
 
-- `tools/tween.py` with:
-  - `add_motion_tween(layer, start_frame, end_frame)`
-  - `add_classic_tween(layer, start_frame, end_frame)`
-  - `set_easing(layer, frame_range, easing_curve)`
-- Smoke test: 2 keyframes 30 frames apart, add motion tween,
-  render → smooth interpolated motion verified
-- 4-6 tests
+- `tools/tween.py` with **3 MCP tools**:
+  - `add_classic_tween(fla_path, layer_name, start_frame)` — sets
+    `frame.tweenType = "motion"` on the keyframe at start_frame.
+    Animate then interpolates position/rotation/scale to the next
+    keyframe on that layer. (This is Animate's "Classic Tween" —
+    the older but cleanest JSFL API, what the orchestrator
+    naturally uses.)
+  - `add_motion_tween(fla_path, layer_name, start_frame, end_frame)`
+    — invokes `Timeline.createMotionObject(start, end)` to create
+    a modern Motion Tween span. Tagged experimental — Phase 3e's
+    clearKeyframes hang showed that some newer JSFL APIs misbehave
+    on Animate 2020.
+  - `set_easing(fla_path, layer_name, frame, easing)` — sets
+    `frame.tweenEasing` on the starting keyframe of a tween.
+    Range -100 to +100: 0 = linear, -100 = ease-in only, +100 =
+    ease-out only.
+
+**JSFL templates** in `mcp_server/jsfl_templates/`:
+- `add_classic_tween.jsfl`
+- `add_motion_tween.jsfl`
+- `set_easing.jsfl`
+
+**Verify helper** `tests/_verify_phase3g.jsfl` reads `tweenType` +
+`tweenEasing` for a frame and writes JSON the smoke asserts against.
+
+**Smoke (`_smoke_phase3g.py`)**:
+1. `create_document` + `import_image_as_layer` (layer "BG", frame 1
+   has image instance).
+2. `insert_keyframe` at frame 30 (need two keyframes to tween between).
+3. `set_instance_position` at frame 30 to (500, 300) — actual motion
+   to interpolate.
+4. `add_classic_tween` at frame 1.
+5. `set_easing` at frame 1 to +50 (ease-out).
+6. Verify via `_verify_phase3g.jsfl`: frame 1's tweenType="motion",
+   tweenEasing=50.
+7. `add_motion_tween` over frames 1-30 (best-effort; if it errors
+   on Animate 2020 we document like `remove_keyframe` was).
+
+**Tests**: ~14-16 unit tests covering registration, JSFL placeholders,
+argument validation, dispatcher routing, easing range validation.
+
+**Phase 3g done criteria**: unit tests pass; classic tween + easing
+verified round-trip; motion tween either verified or documented-as-
+deferred with the same honest-shipping pattern Phase 3e + 3f used.
 
 ---
 
