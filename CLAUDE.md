@@ -127,6 +127,15 @@ animate-cc-pipeline/
 │   └── RIG_SPEC_v1.md               ← rig contract (locked)
 ├── animate_cc_pipeline/
 │   ├── README.md                    ← subsystem overview
+│   ├── pipeline/                    ← (Phase 3j+) pure-Python pipeline Nodes
+│   │   ├── __init__.py
+│   │   ├── errors.py                ← Node*Error hierarchy
+│   │   ├── schemas.py               ← pydantic models for pipeline outputs
+│   │   ├── pose_estimator.py        ← (3j) Protocol + factory
+│   │   ├── pose_backends/
+│   │   │   ├── mock.py              ← (3j) synthetic poses
+│   │   │   └── http_client.py       ← (3j) remote pose service client
+│   │   └── cli_node6_pose.py        ← (3j) Node 6 CLI
 │   ├── mcp_server/
 │   │   ├── README.md                ← MCP server docs
 │   │   ├── server.py                ← (Phase 3b) MCP protocol handler
@@ -176,8 +185,8 @@ animate-cc-pipeline/
 | 3f | Bone tools + rig contract validator + template rig | **Shipped 2026-05-16** (commit `c25ee48`) — 3 of 6 tools verified; armature-bone tools + template rig deferred to Phase 3f-fixup pending real rig |
 | 3g | Tween tools | **Shipped 2026-05-16** (commit `56faa6b`) — all 3 tools verified end-to-end |
 | 3h | Audio + lipsync tools | **Shipped 2026-05-16** (commit `8e66a85`) — all 3 verified end-to-end; `apply_auto_lipsync` experimental (runs clean, Hindi-audio quality unverified) |
-| 3i | Camera + render tools | **In progress (this commit)** — all 3 tools verified end-to-end; first MP4 successfully rendered (10-frame test, 2046 bytes). MCP server is now FEATURE-COMPLETE for orchestrator work. |
-| 3j | Per-frame pose estimation (Node 6) | pending |
+| 3i | Camera + render tools | **Shipped 2026-05-16** (commit `e72bad2`) — all 3 tools verified end-to-end; first MP4 rendered. MCP server feature-complete. |
+| 3j | Per-frame pose estimation (Node 6) | **In progress (this commit)** — framework + mock + HTTP backends; DWPose local backend deferred (operator installs when needed) |
 | 3k | Pose → bone angle math | pending |
 | 3l | Orchestrator end-to-end (Node 7) | pending |
 | 3m | Camera move detection | pending |

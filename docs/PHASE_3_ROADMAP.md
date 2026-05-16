@@ -559,16 +559,116 @@ either verified or documented as experimental. Wall time
 
 ### Phase 3j — Per-frame pose estimation (Node 6)
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
+
+**Scope decision**: ship the FRAMEWORK + a mock backend + an HTTP
+client backend now. Defer the real DWPose local install (heavy:
+PyTorch + ONNX runtime + ~1 GB weights) to a future fixup OR have
+the operator install on a RunPod worker behind the HTTP backend.
 
 **Ships:**
 
-- `orchestrator/cli_node6_pose.py` — wraps DWPose
-- HTTP API spec for the RunPod worker (since pose runs on cloud GPU)
-- `pose_map.json` schema (schemaVersion 1)
-- `node6_result.json` aggregate schema
-- Tests against synthetic frames + a real TMKOC test frame
-- 8-10 tests
+- `pipeline/__init__.py` — new package for pipeline Nodes (parallel
+  to mcp_server). Each pipeline Node is its own module.
+- `pipeline/errors.py` — Node6Error hierarchy following the prior
+  project's convention.
+- `pipeline/schemas.py` — pydantic models for:
+  - `Joint` (x, y, confidence)
+  - `JointSet` (17 named joints per RIG_SPEC_v1)
+  - `CharacterPose` (identity + bbox + JointSet)
+  - `FramePoseSet` (frame index + list of CharacterPose)
+  - `PoseMap` (schemaVersion 1, shotId, frames dict)
+  - `ShotPoseSummary` + `Node6Result` (aggregate)
+- `pipeline/pose_estimator.py` — abstract `PoseEstimator` interface
+  with `estimate_pose(image, bbox) -> JointSet` method.
+- `pipeline/pose_backends/`:
+  - `mock.py` — returns synthetic poses (deterministic from bbox)
+    for testing + as orchestrator stub.
+  - `http_client.py` — POSTs frames + bboxes to a remote pose
+    service (the RunPod worker the operator deploys).
+- `pipeline/cli_node6_pose.py` — CLI that reads node5_result.json
+  + per-shot frames, calls the chosen backend, writes pose_map.json
+  per shot + node6_result.json aggregate.
+- `run_node6_pose.py` — repo-root wrapper with sys.path fixup (same
+  pattern as the prior project's run_node*.py).
+- `tests/test_node6_pose.py` — schema validation, mock backend,
+  HTTP client mock, CLI smoke on synthetic data.
+
+**Deferred (operator-time tasks, documented for handover)**:
+
+- `pipeline/pose_backends/dwpose_local.py` — local DWPose. Requires
+  torch + onnxruntime + 1 GB weights. Operator opts in by installing
+  the optional deps + running `--backend dwpose_local`.
+- RunPod HTTP service deployment — operator runs a small FastAPI
+  app exposing `/estimate_pose` on RunPod with GPU. Phase 3j
+  documents the HTTP contract; the actual deployment is operator's.
+
+**JSON schemas**:
+
+```
+pose_map.json:
+  schemaVersion: 1
+  shotId: str
+  frames: { "1": FramePoseSet, "2": ..., ... }
+
+FramePoseSet:
+  frameIndex: int
+  characters: [CharacterPose, ...]
+
+CharacterPose:
+  identity: str
+  bbox: { x, y, w, h }
+  joints: {
+    "nose": { x, y, confidence },
+    "neck": { x, y, confidence },     # computed from shoulders if needed
+    "shoulder_L": ..., "shoulder_R": ...,
+    "elbow_L": ..., "elbow_R": ...,
+    "wrist_L": ..., "wrist_R": ...,
+    "hip_L": ..., "hip_R": ...,
+    "knee_L": ..., "knee_R": ...,
+    "ankle_L": ..., "ankle_R": ...
+  }
+
+node6_result.json:
+  schemaVersion: 1
+  shots: [ShotPoseSummary, ...]
+
+ShotPoseSummary:
+  shotId: str
+  framesProcessed: int
+  charactersFound: int
+  poseMapPath: str (absolute)
+```
+
+**HTTP backend contract** (for the RunPod worker the operator runs):
+
+```
+POST /estimate_pose
+Content-Type: multipart/form-data
+Body:
+  image_frame:  PNG file (the cropped character region)
+  bbox: JSON { x, y, w, h }
+  expected_identity: str (optional, for logging)
+
+Response 200:
+  Content-Type: application/json
+  {
+    "joints": {
+      "nose": { x, y, confidence },
+      ...
+    },
+    "model": "dwpose-v1",
+    "infer_time_ms": int
+  }
+
+Response 4xx/5xx → CLI logs warning, sets character's pose to null
+in the output, continues processing.
+```
+
+**Phase 3j done criteria**: tests pass on synthetic data; CLI runs
+end-to-end with the mock backend producing valid `pose_map.json`.
+HTTP backend has unit tests that mock urllib responses. Wall time:
+pure-Python, no Animate, ~5-10 sec for a full test run.
 
 ---
 
