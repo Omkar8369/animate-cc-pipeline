@@ -45,7 +45,7 @@ except ImportError as exc:  # pragma: no cover - exercised at runtime only
 # ─── Server metadata ────────────────────────────────────────────────
 
 SERVER_NAME = "animate-cc"
-SERVER_VERSION = "0.4.0"  # Phase 3e: keyframe tools
+SERVER_VERSION = "0.5.0"  # Phase 3f: bone/graphic + rig validator
 
 DEFAULT_ANIMATE_CC_EXE = (
     r"C:\Program Files\Adobe\Adobe Animate 2020\Animate.exe"
@@ -61,6 +61,7 @@ logger = logging.getLogger("animate_cc_mcp")
 from .tools import document as document_tools
 from .tools import symbol as symbol_tools
 from .tools import keyframe as keyframe_tools
+from .tools import bone as bone_tools
 
 
 # ─── Tool catalog ───────────────────────────────────────────────────
@@ -88,6 +89,7 @@ ALL_TOOLS: list[types.Tool] = (
     + document_tools.ALL_TOOLS
     + symbol_tools.ALL_TOOLS
     + keyframe_tools.ALL_TOOLS
+    + bone_tools.ALL_TOOLS
 )
 
 # Aggregate tool handler dispatch table
@@ -95,6 +97,7 @@ TOOL_HANDLERS: dict[str, Any] = {
     **document_tools.TOOL_HANDLERS,
     **symbol_tools.TOOL_HANDLERS,
     **keyframe_tools.TOOL_HANDLERS,
+    **bone_tools.TOOL_HANDLERS,
     # ping is handled inline (see handle_call_tool); not async-wrapped
 }
 

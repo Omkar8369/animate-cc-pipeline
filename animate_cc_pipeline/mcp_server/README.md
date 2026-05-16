@@ -156,7 +156,7 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 | `tools/document.py` | **3c (shipped)** | create_document, save_document, close_document, import_image_as_layer, import_video_as_layer |
 | `tools/symbol.py` | **3d (shipped)** | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation |
 | `tools/keyframe.py` | **3e (shipped, partial)** | insert_keyframe, insert_blank_keyframe, get_keyframes, remove_keyframe (deferred — Animate 2020 hangs on clearKeyframes) |
-| `tools/bone.py` | 3f | list_bones, set_bone_angle, set_bone_position, set_graphic_first_frame |
+| `tools/bone.py` | **3f (shipped, partial)** | set_graphic_first_frame, get_graphic_first_frame, validate_rig; armature-bone tools (list_bones, set_bone_angle, set_bone_position) deferred to Phase 3f-fixup pending real rig |
 | `tools/tween.py` | 3g | add_motion_tween, add_classic_tween, set_easing |
 | `tools/audio.py` | 3h | import_audio, apply_auto_lipsync, set_switch_state |
 | `tools/camera.py` | 3i | set_camera_position |
@@ -219,6 +219,28 @@ Timeline.insertFrames(...)` to extend if needed →
 for the blank variant). This pattern is more reliable than
 `Timeline.insertKeyframe(N)` which silently no-ops in some
 configurations.
+
+### Phase 3f shipped tools (in detail)
+
+| Tool | Action | Status |
+|------|--------|--------|
+| `set_graphic_first_frame(fla_path, layer_name, frame, target_first_frame, loop_mode)` | Pin a Graphic Symbol instance to a specific frame of its underlying timeline (the rotation-strip primitive). Loop modes: `loop`, `play once`, `single frame` (default). | ✅ Verified |
+| `get_graphic_first_frame(fla_path, layer_name, frame)` | READ-only — return firstFrame + loop + instanceType of the element on (layer, frame). | ✅ Verified |
+| `validate_rig(fla_path, identity)` | Run rig_validator against a .fla. Returns JSON report with per-rule pass/fail + structured error messages. Used by orchestrator to gate rig ingestion. | ✅ Verified (negative path) |
+
+**Pragmatic scope (deferred to Phase 3f-fixup or Phase 3o):**
+`list_bones`, `set_bone_angle`, `set_bone_position` — all require an
+armature-rigged `.fla` to test against; JSFL `addNewArmature` is
+rough; Animate's Bone tool is interactive-only. Will land alongside
+real rigger commission.
+
+**`rig_contracts/rig_validator.py`** (Python module, not an MCP tool
+directly — exposed via `validate_rig` MCP tool):
+Checks against RIG_SPEC_v1 — root MovieClip name, required layers,
+mouth/eye/eyebrow/face switch states, rotation-strip frame counts,
+`_metadata` JSON shape + identity match. Returns
+`ValidationReport` with per-rule `CheckResult`s. Pure-Python; unit
+tests run synthetic structure JSON inputs.
 
 ### Phase 3e gotcha #5 — clearKeyframes hangs in Animate 2020
 

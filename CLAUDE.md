@@ -172,8 +172,8 @@ animate-cc-pipeline/
 | 3b | MCP server scaffold + hello-world JSFL | **Shipped 2026-05-14** (commit `33aeb49`) + **fixup-1 2026-05-15** (commit `1b1660b`) |
 | 3c | Document tools (create / save / close / import image / import video) | **Shipped 2026-05-16** (commit `680b6f3`) |
 | 3d | Symbol placement tools | **Shipped 2026-05-16** (commit `a2df524`) |
-| 3e | Keyframe tools | **In progress (this commit)** — 3 of 4 tools verified end-to-end; `remove_keyframe` shipped with known Animate 2020 limitation |
-| 3f | Bone tools + rig contract validator + template rig | pending |
+| 3e | Keyframe tools | **Shipped 2026-05-16** (commit `ae49d3e`; chore `decdbd2`) — 3 of 4 tools verified, `remove_keyframe` deferred (Animate 2020) |
+| 3f | Bone tools + rig contract validator + template rig | **In progress (this commit)** — pragmatic scope: shipped graphic-first-frame tools + rig validator (3 MCP tools); deferred armature-bone tools + template rig until real rig available. All 3 tools verified end-to-end. |
 | 3g | Tween tools | pending |
 | 3h | Audio + lipsync tools | pending |
 | 3i | Camera + render tools | pending |

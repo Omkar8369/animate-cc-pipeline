@@ -350,25 +350,75 @@ documented: `insertKeyframe` silently no-ops (workaround:
 
 ### Phase 3f — Bone tools + rig contract validator + template rig
 
-**Status:** Pending
+**Status:** In progress (2026-05-16) — pragmatic scope revision.
+
+**Scope revision rationale**: original plan listed `list_bones` /
+`set_bone_angle` / `set_bone_position` as primary tools. Two
+realities after Phase 3d-3e gotcha load:
+
+1. Armature-bone manipulation requires a properly-rigged `.fla`
+   with a bone armature already present (Animate's Bone tool is
+   interactive; JSFL armature creation is rough).
+2. RIG_SPEC_v1 decision #6 documents that Animate 2020 uses
+   **rotation strips on Graphic Symbols** as the Smart-Bone
+   substitute. The orchestrator's per-frame transform updates
+   primarily drive `graphic.firstFrame` to switch limb drawings —
+   NOT raw bone-angle manipulation.
+
+So Phase 3f reframes around graphic-first-frame (the actual rigging
+primitive we need) and defers armature-bone tools.
 
 **Ships:**
 
-- `tools/bone.py` with:
-  - `list_bones(rig_instance)`
-  - `set_bone_angle(rig_instance, bone_path, frame, angle)`
-  - `set_bone_position(rig_instance, bone_path, frame, x, y)`
-  - `set_graphic_first_frame(instance_id, frame_index)`
-    *(for rotation strips)*
-- `rig_contracts/rig_validator.py` — validates a `.fla` against
-  `RIG_SPEC_v1` (checks layer names, bone names, switch states,
-  metadata fields)
-- `rigs/_template/template_character.fla` — minimal valid placeholder
-  rig (stick figure with all required layers/bones/switches; not
-  artistically real, but mechanically complete for testing)
-- Smoke test: drive the template rig's arm bone across 10 frames at
-  varying angles, verify rotation strip swaps correctly
-- 10-12 tests
+- `tools/bone.py` with 3 MCP tools:
+  - `set_graphic_first_frame(fla_path, layer_name, frame, target_first_frame, loop_mode)` —
+    sets `firstFrame` and `loop` on a Graphic Symbol instance.
+    Rotation-strip control: pose angle maps to a strip frame index.
+  - `get_graphic_first_frame(fla_path, layer_name, frame)` — READ
+    helper. Returns current firstFrame + loop mode.
+  - `validate_rig(fla_path, identity)` — runs the rig validator,
+    returns JSON report.
+- `rig_contracts/rig_validator.py` — Python validation logic.
+  Reads structure JSON from `dump_rig_structure.jsfl`, validates
+  against RIG_SPEC_v1 rules.
+- `rig_contracts/__init__.py` — package init.
+- `mcp_server/jsfl_templates/dump_rig_structure.jsfl` — extracts
+  rig structure as JSON (layers, switch states, library items,
+  Graphic Symbol frame counts, metadata layer JSON).
+
+**Deferred (honest scope reduction)**:
+
+- `list_bones`, `set_bone_angle`, `set_bone_position`
+- `rigs/_template/template_character.fla`
+
+  *Reason*: all need a real armature-rigged `.fla` to test against;
+  JSFL armature creation is rough. Will land in Phase 3f-fixup or
+  alongside Phase 3o once a rigger provides a real test fixture.
+
+**JSFL templates**:
+- `set_graphic_first_frame.jsfl`
+- `get_graphic_first_frame.jsfl`
+- `dump_rig_structure.jsfl`
+
+**Smoke (`_smoke_phase3f.py`)**:
+1. `create_document`, then build a Graphic Symbol "RotationStrip"
+   with 3 blank keyframes via JSFL (`library.addNewItem` +
+   `editItem` + insertBlankKeyframe loop).
+2. Place a RotationStrip instance on layer "ARM" frame 1.
+3. `get_graphic_first_frame("ARM", 1)` → default firstFrame.
+4. `set_graphic_first_frame("ARM", 1, target=2, loop="single frame")`.
+5. `get_graphic_first_frame("ARM", 1)` → firstFrame=2,
+   loop="single frame".
+6. `validate_rig` on the test `.fla` → expect FAIL with structured
+   missing-field errors. Validates the validator's negative path.
+
+**Tests**: ~18-22 unit tests covering tool registration, JSFL
+placeholders, argument validation, rig_validator rule methods on
+synthetic JSON fixtures.
+
+**Phase 3f done criteria**: unit tests pass; smoke round-trips
+`set_graphic_first_frame`; validator correctly flags the bad smoke
+rig. Wall time ~120-180s.
 
 ---
 
