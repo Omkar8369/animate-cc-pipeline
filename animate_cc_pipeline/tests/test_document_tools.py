@@ -42,11 +42,17 @@ def test_server_lists_all_phase3c_tools():
     assert _all_tool_names() >= expected
 
 
-def test_server_version_bumped_for_phase3c():
+def test_server_version_at_least_0_2():
+    """Phase 3c bumped to >=0.2. Later phases keep bumping; this test
+    just guards against accidental regression to 0.1 or pre-3c state.
+    """
     from animate_cc_pipeline.mcp_server.server import SERVER_VERSION
-    # Phase 3c bumps to 0.2.x
-    assert SERVER_VERSION.startswith("0.2"), (
-        f"expected version 0.2.x for Phase 3c, got {SERVER_VERSION}"
+
+    parts = SERVER_VERSION.split(".")
+    major = int(parts[0])
+    minor = int(parts[1])
+    assert (major, minor) >= (0, 2), (
+        f"expected >=0.2.x for Phase 3c+, got {SERVER_VERSION}"
     )
 
 

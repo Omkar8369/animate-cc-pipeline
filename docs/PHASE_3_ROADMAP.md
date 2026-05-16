@@ -160,7 +160,11 @@ run manually. Claude Code can call `ping` and receive a JSON response.
 
 ### Phase 3c — Document tools
 
-**Status:** In progress (2026-05-16)
+**Status:** Shipped 2026-05-16 (commit `680b6f3`). 34 unit tests pass;
+end-to-end smoke creates a `.fla` with an embedded image layer
+(.fla grew 3801 → 4615 bytes) in ~46 seconds across 3 Animate
+launches. Discovered + documented Animate gotcha: `doc.addNewLayer`
+does not exist; layer ops are on `doc.getTimeline()`.
 
 **Ships (revised scope from original 3c plan):**
 
@@ -215,18 +219,61 @@ Phase 3i).
 
 ### Phase 3d — Symbol placement tools
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
 **Ships:**
 
-- `tools/symbol.py` with:
-  - `place_symbol_instance(symbol, layer, x, y, frame)`
-  - `set_instance_position(instance_id, frame, x, y)`
-  - `set_instance_scale(instance_id, frame, sx, sy)`
-  - `set_instance_rotation(instance_id, frame, angle)`
-- Smoke test: place a symbol at 5 positions across 5 frames, save,
-  verify positions match
-- 6-8 unit tests
+- `tools/symbol.py` with **4 MCP tools**:
+  - `place_symbol_instance(fla_path, symbol_name, layer_name, frame, x, y)`
+    — places an instance of an existing library symbol onto a layer
+    at given frame and stage coordinates. Auto-creates the layer if
+    not present.
+  - `set_instance_position(fla_path, layer_name, frame, x, y)` —
+    moves the first element on layer+frame to (x, y).
+  - `set_instance_scale(fla_path, layer_name, frame, sx, sy)` —
+    sets scaleX/scaleY of the first element on layer+frame.
+  - `set_instance_rotation(fla_path, layer_name, frame, angle)` —
+    sets rotation (degrees) of the first element on layer+frame.
+
+**Identification model**: tools identify the target instance by
+**layer name + frame number** (assumes one element per layer per
+frame, which matches the rigging workflow — one rig per layer per
+shot). Layer-name resolution scans `doc.getTimeline().layers` for a
+matching `.name`; frame number is 1-indexed externally and converted
+to 0-indexed internally for JSFL.
+
+**Deferred**:
+
+- `import_character_rig(fla_path, rig_fla_path)` — importing
+  another `.fla`'s library is its own JSFL pattern
+  (`fl.openExternalLibrary` then copy). Will ship in 3d-fixup or
+  alongside Phase 3o's first real-rig validation if the orchestrator
+  needs it then.
+- `list_library_symbols`, `list_layers`, `get_stage_info` —
+  introspection utilities; Phase 3i grouping.
+
+**JSFL templates** in `mcp_server/jsfl_templates/`:
+- `place_symbol_instance.jsfl`
+- `set_instance_position.jsfl`
+- `set_instance_scale.jsfl`
+- `set_instance_rotation.jsfl`
+
+**Smoke test (`_smoke_phase3d.py`)**:
+1. `create_document` (new .fla)
+2. `import_image_as_layer` (puts a PNG on layer "BG" — gives us an
+   element to manipulate)
+3. `set_instance_position` to (500, 300)
+4. `set_instance_scale` to (2.0, 2.0)
+5. `set_instance_rotation` to 45°
+6. Reopen .fla and verify the element's properties match
+
+**Tests**: ~12-15 unit tests covering tool registration, JSFL
+template presence + placeholder validation, argument validation,
+error paths for missing layer/frame/file.
+
+**Phase 3d "done" criteria**: unit tests pass via pytest; smoke
+verifies set_instance_* applied changes survive a save/reopen
+cycle. Wall time ~80-120s (4-5 Animate launches in sequence).
 
 ---
 

@@ -170,8 +170,8 @@ animate-cc-pipeline/
 |-------|-------|--------|
 | 3a | Project scaffold + canonical files + 13 locked decisions | **Shipped 2026-05-14** (commit `0440c04`) |
 | 3b | MCP server scaffold + hello-world JSFL | **Shipped 2026-05-14** (commit `33aeb49`) + **fixup-1 2026-05-15** (commit `1b1660b`) |
-| 3c | Document tools (create / save / close / import image / import video) | **In progress (this commit)** |
-| 3d | Symbol placement tools | pending |
+| 3c | Document tools (create / save / close / import image / import video) | **Shipped 2026-05-16** (commit `680b6f3`) |
+| 3d | Symbol placement tools | **In progress (this commit)** |
 | 3e | Keyframe tools | pending |
 | 3f | Bone tools + rig contract validator + template rig | pending |
 | 3g | Tween tools | pending |
@@ -415,6 +415,14 @@ them:
   does NOT exist in Animate 2020. Use
   `doc.getTimeline().addNewLayer(name, layerType)` instead. Same
   for `insertBlankKeyframe`, `currentFrame`. Discovered in Phase 3c.
+- **Transform-order matters for `element.x` / `element.y`.** Apply
+  transforms in this order: **rotation → scale → position**.
+  Position LAST. JSFL's `element.x` / `element.y` represent the
+  post-transform bounding-box top-left, which shifts under earlier
+  rotation/scale. Setting position last gives a clean round-trip
+  through save/reopen with ~1-2px float-drift. The orchestrator
+  (Phase 3l) must follow this ordering when keyframing transforms
+  per frame. Discovered in Phase 3d.
 - **Single-instance Animate behavior.** If Animate.exe is already
   running, a new `Animate.exe -AlwaysRunJSFL <script>` invocation
   delegates to the existing instance. The bridge auto-kills any

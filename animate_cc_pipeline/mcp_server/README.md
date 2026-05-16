@@ -154,7 +154,7 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 | File | Phase | Tools |
 |------|-------|-------|
 | `tools/document.py` | **3c (shipped)** | create_document, save_document, close_document, import_image_as_layer, import_video_as_layer |
-| `tools/symbol.py` | 3d | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation; (also: import_character_rig, deferred from 3c) |
+| `tools/symbol.py` | **3d (shipped)** | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation |
 | `tools/keyframe.py` | 3e | insert_keyframe, insert_blank_keyframe, remove_keyframe, get_keyframes |
 | `tools/bone.py` | 3f | list_bones, set_bone_angle, set_bone_position, set_graphic_first_frame |
 | `tools/tween.py` | 3g | add_motion_tween, add_classic_tween, set_easing |
@@ -179,6 +179,29 @@ All Animate-spawning tools follow the bridge's sentinel-polling +
 force-kill pattern from Phase 3b. Each tool is stateless — opens
 .fla, performs one operation, saves, closes. Long-running Animate
 instance reuse is deferred to Phase 3i.
+
+### Phase 3d shipped tools (in detail)
+
+| Tool | Action | Wall time |
+|------|--------|-----------|
+| `place_symbol_instance(fla_path, symbol_name, layer_name, frame, x, y)` | Place an instance of a library symbol; auto-creates the layer if missing | ~20s |
+| `set_instance_position(fla_path, layer_name, frame, x, y)` | Move the first element on (layer, frame) to (x, y) | ~17s |
+| `set_instance_scale(fla_path, layer_name, frame, sx, sy)` | Set scaleX/scaleY on the first element on (layer, frame) | ~17s |
+| `set_instance_rotation(fla_path, layer_name, frame, angle)` | Set rotation (degrees, CW positive) on the first element | ~17s |
+
+**Identification model**: each modify tool finds its target by
+**layer name + frame number** (1-indexed externally, converted to
+0-indexed for JSFL). The first element on that (layer, frame) is
+the target. Matches the rigging workflow — one rigged character
+per layer.
+
+**Transform-order convention (Phase 3d gotcha)**: apply transforms
+in this order — **rotation → scale → position**. Position LAST.
+JSFL's `element.x` / `element.y` represent the post-transform
+bounding-box top-left, which shifts under rotation/scale; setting
+position last gives you back exactly what you set. The Phase 3d
+smoke verifies this round-trips through save+reopen with ~2px
+tolerance.
 
 ## JSFL templates
 
