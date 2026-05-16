@@ -45,7 +45,7 @@ except ImportError as exc:  # pragma: no cover - exercised at runtime only
 # ─── Server metadata ────────────────────────────────────────────────
 
 SERVER_NAME = "animate-cc"
-SERVER_VERSION = "0.6.0"  # Phase 3g: tween tools
+SERVER_VERSION = "0.7.0"  # Phase 3h: audio + lipsync
 
 DEFAULT_ANIMATE_CC_EXE = (
     r"C:\Program Files\Adobe\Adobe Animate 2020\Animate.exe"
@@ -63,6 +63,7 @@ from .tools import symbol as symbol_tools
 from .tools import keyframe as keyframe_tools
 from .tools import bone as bone_tools
 from .tools import tween as tween_tools
+from .tools import audio as audio_tools
 
 
 # ─── Tool catalog ───────────────────────────────────────────────────
@@ -92,6 +93,7 @@ ALL_TOOLS: list[types.Tool] = (
     + keyframe_tools.ALL_TOOLS
     + bone_tools.ALL_TOOLS
     + tween_tools.ALL_TOOLS
+    + audio_tools.ALL_TOOLS
 )
 
 # Aggregate tool handler dispatch table
@@ -101,6 +103,7 @@ TOOL_HANDLERS: dict[str, Any] = {
     **keyframe_tools.TOOL_HANDLERS,
     **bone_tools.TOOL_HANDLERS,
     **tween_tools.TOOL_HANDLERS,
+    **audio_tools.TOOL_HANDLERS,
     # ping is handled inline (see handle_call_tool); not async-wrapped
 }
 

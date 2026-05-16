@@ -477,18 +477,36 @@ deferred with the same honest-shipping pattern Phase 3e + 3f used.
 
 ### Phase 3h — Audio + lipsync tools
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
 **Ships:**
 
-- `tools/audio.py` with:
-  - `import_audio(audio_path, layer, frame)`
-  - `apply_auto_lipsync(audio_layer, mouth_switch_symbol)`
-  - `set_switch_state(layer, frame, state_name)`
-- Tests against synthetic Hindi WAV file
-- Documents which mouth switch states Animate's auto-lipsync targets
-  (which determines the `RIG_SPEC_v1` mouth-state name set)
-- 6-8 tests
+- `tools/audio.py` with **3 MCP tools**:
+  - `import_audio(fla_path, audio_path, layer_name, frame)` —
+    imports a WAV/MP3 + places instance on a layer at frame.
+  - `set_switch_state(fla_path, layer_name, frame, state_name)` —
+    pins a Switch-style Graphic Symbol to its frame labeled
+    `state_name`. Used for mouth shapes / facial expressions.
+  - `apply_auto_lipsync(fla_path, audio_layer, mouth_layer)` —
+    EXPERIMENTAL. JSFL surface limited.
+
+**JSFL templates**: import_audio.jsfl, set_switch_state.jsfl,
+apply_auto_lipsync.jsfl, _setup_phase3h_test_fla.jsfl (smoke helper
+that builds a Graphic Symbol with frame labels).
+
+**Smoke (`_smoke_phase3h.py`)**:
+1. `create_document`
+2. Generate a 0.5s silent WAV via Python `wave` stdlib.
+3. `import_audio` onto layer "AUDIO" frame 1.
+4. Build "MouthSwitch" with 3 named frames (mouth_A, mouth_E,
+   mouth_O); place instance on layer "MOUTH" frame 1.
+5. `set_switch_state("MOUTH", 1, "mouth_E")` → expect firstFrame=1.
+6. Verify via `get_graphic_first_frame` (Phase 3f).
+7. `apply_auto_lipsync` attempted — non-fatal on error.
+
+**Phase 3h done criteria**: unit tests pass; import_audio +
+set_switch_state verified end-to-end; apply_auto_lipsync either
+verified or documented as deferred. Wall time ~130-180s.
 
 ---
 
