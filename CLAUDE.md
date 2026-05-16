@@ -169,8 +169,8 @@ animate-cc-pipeline/
 | Phase | Title | Status |
 |-------|-------|--------|
 | 3a | Project scaffold + canonical files + 13 locked decisions | **Shipped 2026-05-14** (commit `0440c04`) |
-| 3b | MCP server scaffold + hello-world JSFL | **Shipped 2026-05-14** (commit `33aeb49`) + **fixup-1 2026-05-15** (this commit) |
-| 3c | Document tools (open / save / import) | pending |
+| 3b | MCP server scaffold + hello-world JSFL | **Shipped 2026-05-14** (commit `33aeb49`) + **fixup-1 2026-05-15** (commit `1b1660b`) |
+| 3c | Document tools (create / save / close / import image / import video) | **In progress (this commit)** |
 | 3d | Symbol placement tools | pending |
 | 3e | Keyframe tools | pending |
 | 3f | Bone tools + rig contract validator + template rig | pending |
@@ -411,6 +411,10 @@ them:
   and opens the Save-As dialog, hanging JSFL. Always use
   `fl.saveDocument(doc, URI)` for headless saves. Discovered in
   Phase 3b-fixup-1.
+- **Layer ops live on Timeline, not Document.** `doc.addNewLayer`
+  does NOT exist in Animate 2020. Use
+  `doc.getTimeline().addNewLayer(name, layerType)` instead. Same
+  for `insertBlankKeyframe`, `currentFrame`. Discovered in Phase 3c.
 - **Single-instance Animate behavior.** If Animate.exe is already
   running, a new `Animate.exe -AlwaysRunJSFL <script>` invocation
   delegates to the existing instance. The bridge auto-kills any

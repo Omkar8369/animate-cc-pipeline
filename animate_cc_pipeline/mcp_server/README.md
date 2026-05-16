@@ -64,6 +64,15 @@ machine, including cold-boot of Animate.
     boolean. **This is what we use.**
   - `fl.saveDocumentAs(doc, URI)` → IGNORES the URI parameter and
     opens the interactive Save-As dialog. Hangs JSFL forever.
+- **Layer ops are on `Timeline`, NOT `Document`.** `doc.addNewLayer`
+  does not exist in Animate 2020 — calling it raises `TypeError:
+  doc.addNewLayer is not a function`. Use:
+  ```javascript
+  doc.getTimeline().addNewLayer(name, layerType);
+  ```
+  Same for `insertBlankKeyframe`, `currentFrame`, etc. — they live
+  on the Timeline object retrieved via `doc.getTimeline()`.
+  Discovered in Phase 3c.
 - **`FLfile.platformPathToURI` returns Mac-style URIs** with `C|`
   instead of `C:` (e.g., `file:///C|/path/to/file.fla`). This is
   Adobe's legacy URI format from Flash. Looks weird but works.
@@ -144,8 +153,8 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 
 | File | Phase | Tools |
 |------|-------|-------|
-| `tools/document.py` | 3c | open_new_document, save_document, close_document, import_animatic_reference, import_background_image, import_character_rig |
-| `tools/symbol.py` | 3d | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation |
+| `tools/document.py` | **3c (shipped)** | create_document, save_document, close_document, import_image_as_layer, import_video_as_layer |
+| `tools/symbol.py` | 3d | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation; (also: import_character_rig, deferred from 3c) |
 | `tools/keyframe.py` | 3e | insert_keyframe, insert_blank_keyframe, remove_keyframe, get_keyframes |
 | `tools/bone.py` | 3f | list_bones, set_bone_angle, set_bone_position, set_graphic_first_frame |
 | `tools/tween.py` | 3g | add_motion_tween, add_classic_tween, set_easing |
@@ -153,8 +162,23 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 | `tools/camera.py` | 3i | set_camera_position |
 | `tools/render.py` | 3i | render_to_mp4, render_preview |
 
-Plus utilities: `get_stage_info`, `list_library_symbols`,
+Plus utilities (later phases): `get_stage_info`, `list_library_symbols`,
 `list_layers`, `validate_rig_against_spec`.
+
+### Phase 3c shipped tools (in detail)
+
+| Tool | Action | Spawns Animate? | Wall time |
+|------|--------|-----------------|-----------|
+| `create_document(fla_path, width, height, fps)` | New empty .fla at canvas dimensions | Yes | ~20s |
+| `save_document(fla_path)` | Open existing .fla, save, close (integrity round-trip) | Yes | ~18s |
+| `close_document()` | Force-kill any running Animate.exe | No | <1s |
+| `import_image_as_layer(fla_path, image_path, layer_name, frame)` | Add layer + place PNG/JPG | Yes | ~17s |
+| `import_video_as_layer(fla_path, mp4_path, layer_name, frame)` | Add layer + embed MP4 | Yes | ~20-30s (slower for long videos) |
+
+All Animate-spawning tools follow the bridge's sentinel-polling +
+force-kill pattern from Phase 3b. Each tool is stateless — opens
+.fla, performs one operation, saves, closes. Long-running Animate
+instance reuse is deferred to Phase 3i.
 
 ## JSFL templates
 

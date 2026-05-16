@@ -45,13 +45,20 @@ except ImportError as exc:  # pragma: no cover - exercised at runtime only
 # ─── Server metadata ────────────────────────────────────────────────
 
 SERVER_NAME = "animate-cc"
-SERVER_VERSION = "0.1.0"  # bump on each phase
+SERVER_VERSION = "0.2.0"  # Phase 3c: document tools
 
 DEFAULT_ANIMATE_CC_EXE = (
     r"C:\Program Files\Adobe\Adobe Animate 2020\Animate.exe"
 )
 
 logger = logging.getLogger("animate_cc_mcp")
+
+
+# ─── Tool category imports ──────────────────────────────────────────
+# Each tools/* module exposes ALL_TOOLS + TOOL_HANDLERS that we
+# aggregate here.
+
+from .tools import document as document_tools
 
 
 # ─── Tool catalog ───────────────────────────────────────────────────
@@ -73,6 +80,16 @@ PING_TOOL = types.Tool(
 )
 
 
+# Aggregate tool catalog from all categories
+ALL_TOOLS: list[types.Tool] = [PING_TOOL] + document_tools.ALL_TOOLS
+
+# Aggregate tool handler dispatch table
+TOOL_HANDLERS: dict[str, Any] = {
+    **document_tools.TOOL_HANDLERS,
+    # ping is handled inline (see handle_call_tool); not async-wrapped
+}
+
+
 # ─── Server wiring ──────────────────────────────────────────────────
 
 server = Server(SERVER_NAME)
@@ -81,7 +98,7 @@ server = Server(SERVER_NAME)
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
     """Return the catalog of tools this server exposes."""
-    return [PING_TOOL]
+    return list(ALL_TOOLS)
 
 
 @server.call_tool()
@@ -92,7 +109,10 @@ async def handle_call_tool(
     """Dispatch a tool call to its handler."""
     if name == "ping":
         return _handle_ping()
-    raise ValueError(f"Unknown tool: {name!r}")
+    handler = TOOL_HANDLERS.get(name)
+    if handler is None:
+        raise ValueError(f"Unknown tool: {name!r}")
+    return await handler(arguments)
 
 
 def _handle_ping() -> list[types.TextContent]:

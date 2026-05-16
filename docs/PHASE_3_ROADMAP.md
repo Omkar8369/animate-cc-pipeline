@@ -160,23 +160,56 @@ run manually. Claude Code can call `ping` and receive a JSON response.
 
 ### Phase 3c — Document tools
 
-**Status:** Pending
+**Status:** In progress (2026-05-16)
 
-**Ships:**
+**Ships (revised scope from original 3c plan):**
 
-- `tools/document.py` with:
-  - `open_new_document(width, height, fps)`
-  - `save_document(path)`
-  - `close_document()`
-  - `import_animatic_reference(mp4_path, layer_name)`
-  - `import_background_image(png_path, layer_name, frame)`
-  - `import_character_rig(fla_path)` — imports another `.fla` as
-    External Library reference
-- JSFL templates: `open_new_doc.jsfl`, `save_doc.jsfl`,
-  `import_video.jsfl`, `import_image.jsfl`, `import_fla_library.jsfl`
-- Smoke test: create doc with MP4 reference + background + rig
-  library, save, reopen, verify structure
-- 8-10 unit tests
+- `mcp_server/tools/__init__.py` — package init for tool categories
+- `mcp_server/tools/document.py` with **5 MCP tools**:
+  - `create_document(fla_path, width, height, fps)` — creates a
+    new `.fla` at the given path with the given canvas dimensions
+    and frame rate
+  - `save_document(fla_path)` — opens an existing `.fla`, saves it,
+    closes it. Useful as an integrity check + as a no-op between
+    other tools
+  - `close_document()` — utility that force-kills any running
+    `Animate.exe` (cleanup after a hung tool call). Stateless.
+  - `import_image_as_layer(fla_path, image_path, layer_name, frame)`
+    — opens `.fla`, adds a new layer named `layer_name`, imports
+    PNG/JPG at the given frame, saves and closes. Covers
+    "background plate" use case.
+  - `import_video_as_layer(fla_path, mp4_path, layer_name, frame)`
+    — same shape but imports MP4 as embedded video. Covers
+    "animatic reference layer" use case for Phase 3l orchestration.
+- JSFL templates in `mcp_server/jsfl_templates/`:
+  - `create_doc.jsfl`
+  - `save_doc.jsfl`
+  - `import_image.jsfl`
+  - `import_video.jsfl`
+- `server.py` updated to register the 5 new tools alongside `ping`
+- `tests/test_document_tools.py` — unit tests (no Animate spawn)
+  covering tool registration, parameter validation, JSFL template
+  substitution
+- `tests/_smoke_phase3c.py` — end-to-end smoke that:
+  1. creates a new .fla
+  2. imports a PIL-generated 16×16 PNG onto a "BG" layer
+  3. re-opens the .fla via save_document (integrity check)
+  4. verifies the .fla still exists and grew in size
+- `mcp_server/README.md` extended with per-tool documentation
+
+**Deferred from original 3c plan to a later phase:**
+
+- `import_character_rig(fla_path)` — importing another `.fla` as
+  External Library is its own JSFL operation; will ship in Phase 3d
+  alongside symbol placement (which is the immediate consumer of
+  library symbols).
+
+**Phase 3c "done" criteria:** Unit tests pass via
+`<python> -m pytest animate_cc_pipeline/tests/test_document_tools.py`.
+Smoke test creates a `.fla` with an image layer and saves it
+successfully. Each tool's per-call wall time is ~20-25s (one
+Animate launch per call; long-running instance reuse deferred to
+Phase 3i).
 
 ---
 
