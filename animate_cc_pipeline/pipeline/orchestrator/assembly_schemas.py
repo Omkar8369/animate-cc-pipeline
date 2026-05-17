@@ -55,6 +55,13 @@ class ShotConfig(BaseModel):
     audio_wav_path: Optional[Path] = None
     """Hindi voice / dialogue audio. Optional."""
 
+    camera_moves_path: Optional[Path] = None
+    """Path to camera_moves.json produced by Phase 3m's camera_detector
+    CLI (or any consumer that emits the `CameraMovesMap` schema). If
+    set, the orchestrator calls set_camera_position per CameraState
+    entry so the rendered MP4 mirrors the rough animatic's camera work.
+    Optional — operator may skip if the shot has a static camera."""
+
     characters: list[CharacterConfig] = Field(default_factory=list)
 
     width: int = 1920

@@ -7,11 +7,18 @@ Main code for the Animate CC Pipeline.
 - `mcp_server/` — Python MCP server bridging Claude ↔ Animate CC.
   Each subfolder = one category of Animate operations (document,
   symbol, keyframe, bone, tween, audio, camera, render).
-- `orchestrator/` — Python-side glue:
-  - `cli_node6_pose.py` runs pose estimation (calls RunPod worker)
-  - `cli_node7_animate.py` is the main shot orchestrator (drives MCP)
-  - `pose_to_bones.py` is joint-coordinates → bone-angles math
-  - `shot_processor.py` per-shot driver
+- `pipeline/` — pure-Python pipeline nodes (no Animate dependency):
+  - `pose_estimator.py` + `pose_backends/` (3j)
+  - `cli_node6_pose.py` Node 6 CLI (3j)
+  - `pose_to_bones.py` joint-coordinates → bone-angles math (3k)
+  - `camera_detector.py` + `cli_camera_detector.py` —
+    phase-correlation camera-move detection, emits camera_moves.json (3m)
+  - `batch_runner.py` + `cli_batch.py` — production batch driver with
+    retry policy + JSONL progress + aggregate BatchReport (3n)
+  - `orchestrator/`:
+    - `assembly_schemas.py` `ShotConfig` + `ShotAssembly`
+    - `shot_processor.py` per-shot driver (3l)
+    - `cli_node7_animate.py` single-config orchestrator CLI (3l)
 - `rig_contracts/` — `rig_validator.py` that enforces
   `docs/RIG_SPEC_v1.md`
 - `tests/` — pytest suite + end-to-end smoke
@@ -52,8 +59,10 @@ Main code for the Animate CC Pipeline.
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
 
-As of Phase 3l (2026-05-16): the orchestrator is operational
-end-to-end. `pipeline/orchestrator/shot_processor.py` drives
-the full MCP toolbelt against synthetic inputs and produces real
-`.fla` + `.mp4` outputs. Production wiring with real character
-rigs lands in Phase 3o (rigger commission).
+As of Phase 3n (2026-05-17): the production batch runner is in.
+`pipeline/batch_runner.run_batch` wraps `shot_processor.process_shot`
+with retry policy, JSONL per-attempt progress logs, and an aggregate
+`BatchReport`. Phase 3m's camera-move detector is wired into the
+orchestrator so `camera_moves.json` produced by `cli_camera_detector`
+drives Animate's Camera layer during shot assembly. Production wiring
+with real character rigs lands in Phase 3o (rigger commission).

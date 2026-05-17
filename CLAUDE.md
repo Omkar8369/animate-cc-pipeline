@@ -135,7 +135,16 @@ animate-cc-pipeline/
 │   │   ├── pose_backends/
 │   │   │   ├── mock.py              ← (3j) synthetic poses
 │   │   │   └── http_client.py       ← (3j) remote pose service client
-│   │   └── cli_node6_pose.py        ← (3j) Node 6 CLI
+│   │   ├── cli_node6_pose.py        ← (3j) Node 6 CLI
+│   │   ├── pose_to_bones.py         ← (3k) joint→bone-angle math
+│   │   ├── camera_detector.py       ← (3m) phase-correlation camera-move detection
+│   │   ├── cli_camera_detector.py   ← (3m) Node 8 CLI
+│   │   ├── batch_runner.py          ← (3n) retry + JSONL + BatchReport
+│   │   ├── cli_batch.py             ← (3n) production batch CLI
+│   │   └── orchestrator/
+│   │       ├── assembly_schemas.py  ← (3l) ShotConfig + ShotAssembly + AssemblyReport
+│   │       ├── shot_processor.py    ← (3l) per-shot driver
+│   │       └── cli_node7_animate.py ← (3l) single-config orchestrator CLI
 │   ├── mcp_server/
 │   │   ├── README.md                ← MCP server docs
 │   │   ├── server.py                ← (Phase 3b) MCP protocol handler
@@ -150,11 +159,6 @@ animate-cc-pipeline/
 │   │   │   ├── camera.py            ← (Phase 3i)
 │   │   │   └── render.py            ← (Phase 3i)
 │   │   └── jsfl_templates/          ← parameterized .jsfl scripts
-│   ├── orchestrator/
-│   │   ├── cli_node6_pose.py        ← (Phase 3j) pose estimation node
-│   │   ├── cli_node7_animate.py     ← (Phase 3l) main orchestrator
-│   │   ├── pose_to_bones.py         ← (Phase 3k) joint→bone math
-│   │   └── shot_processor.py        ← (Phase 3l) per-shot driver
 │   ├── rig_contracts/
 │   │   └── rig_validator.py         ← (Phase 3f) checks .fla vs spec
 │   └── tests/
@@ -189,8 +193,8 @@ animate-cc-pipeline/
 | 3j | Per-frame pose estimation (Node 6) | **Shipped 2026-05-16** (commit `8372da8`) — framework + mock + HTTP backends; DWPose local + RunPod worker deferred to operator setup |
 | 3k | Pose → bone angle math | **Shipped 2026-05-16** (commit `73feb60`) — 35 unit tests, pure-Python math |
 | 3l | Orchestrator end-to-end (Node 7) | **Shipped 2026-05-16** (commit `2c814c0`) — pipeline functions end-to-end; smoke produces real .fla + .mp4 in ~5 minutes from synthetic inputs |
-| 3m | Camera move detection | **In progress (this commit)** |
-| 3n | Production batch runner | pending |
+| 3m | Camera move detection | **Shipped 2026-05-17** (commit `21b9886`) — 22 unit tests; phase correlation via cv2 + pure-numpy FFT fallback; `camera_moves.json` schema + CLI |
+| 3n | Production batch runner | **Shipped 2026-05-17** (this commit) — 27 unit tests; retry policy, JSONL progress, `BatchReport`, camera_moves orchestrator wiring |
 | 3o | First real-rig validation (Jethalal) | pending |
 | 3p | Documentation pass + first real episode test | pending |
 

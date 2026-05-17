@@ -196,9 +196,21 @@ timeline, and MP4 export natively.
 
 ### Node 11 — Batch Management
 
-Subprocess orchestrator that runs Node 2 → 3 → 4 → 5 → 6 → 7 in
-sequence per shot. Per-node retry policy + JSONL progress log +
-final aggregate report.
+Production-grade per-shot driver. **Shipped in Phase 3n** as
+`pipeline/batch_runner.py` (`run_batch`) + `pipeline/cli_batch.py`
++ repo-root `run_batch.py`. Reads a `batch_config.json` describing
+N shots; runs `shot_processor.process_shot` per shot with a
+configurable retry policy (default: 2 retries = up to 3 attempts
+per shot). Emits two artifacts:
+
+- `batch_progress.jsonl` — one JSON line per attempt, status one of
+  `succeeded / retrying / exhausted`. Append-only so a partial run
+  is parseable up to the last completed event.
+- `batch_report.json` — aggregate `BatchReport` (started/finished
+  timestamps, total attempts, list of final per-shot `ShotAssembly`).
+
+CLI exit codes: 0 all-OK, 1 some shot failed after retries, 2 setup
+error (bad config, can't write report, etc.).
 
 **Diverges from prior project:**
 
@@ -208,6 +220,10 @@ final aggregate report.
   `ANIMATE_CC_EXE` env var
 - Pre-Node-7 check: validate every `rigFilename` in `queue.json`
   passes `rig_validator.py`
+- In-line pose detection + camera-move detection are NOT auto-chained;
+  operators run `cli_node6_pose` and `cli_camera_detector` as
+  preprocessing and reference the resulting JSON via `pose_map_path`
+  / `camera_moves_path` in the batch config.
 
 ## The MCP server
 
@@ -329,7 +345,9 @@ through the full pipeline and produce an animated MP4 that:
 - Background depth-zone annotations for auto-scale correction
 - Real-time preview during Claude orchestration (we currently
   batch-process then animator opens result)
-- Multi-shot batch parallelism (currently sequential; Phase 3n adds
-  basic concurrency)
+- Multi-shot batch parallelism (Phase 3n shipped sequential per-shot
+  processing; concurrent shot processing is deferred — the embedded
+  Animate process serializes JSFL anyway, so a fan-out would gate on
+  multiple Animate launches, not free)
 - Automatic shot splitter from full-episode animatic (Phase 3n only
   scopes per-shot input; full-episode auto-split is v2)

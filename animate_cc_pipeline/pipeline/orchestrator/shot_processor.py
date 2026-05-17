@@ -48,6 +48,7 @@ from ..pose_to_bones import (
     compute_rig_position,
     compute_rig_scale,
 )
+from ..camera_detector import CameraMovesMap
 from ..schemas import PoseMap, FramePoseSet
 from .assembly_schemas import (
     AssemblyReport,
@@ -331,6 +332,72 @@ async def _add_tweens_between_keyframes(cfg: ShotConfig, char: CharacterConfig, 
         assembly.steps.append(step)
 
 
+def _load_camera_moves(path: Optional[Path]) -> Optional[CameraMovesMap]:
+    if path is None or not path.exists():
+        return None
+    try:
+        return CameraMovesMap.model_validate_json(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.warning("could not parse camera_moves at %s: %s", path, exc)
+        return None
+
+
+async def _apply_camera_moves(cfg: ShotConfig, assembly: ShotAssembly) -> None:
+    """Apply Phase 3m camera_moves.json to the Animate Camera layer.
+
+    No-op if `camera_moves_path` is unset or the file is unreadable.
+    Each CameraState entry → one set_camera_position call. Failures
+    are accumulated as warnings (camera is best-effort; the .fla
+    still saves without it).
+    """
+    if cfg.camera_moves_path is None:
+        assembly.steps.append(StepResult(step="apply_camera_moves", ok=True, note="skipped (no path)"))
+        return
+    moves_map = _load_camera_moves(cfg.camera_moves_path)
+    if moves_map is None:
+        assembly.warnings.append(
+            f"camera_moves_path set but could not be parsed: {cfg.camera_moves_path}"
+        )
+        assembly.steps.append(StepResult(
+            step="apply_camera_moves", ok=False, note="parse failed",
+        ))
+        return
+    if not moves_map.moves:
+        assembly.steps.append(StepResult(
+            step="apply_camera_moves", ok=True, note="empty moves list",
+        ))
+        return
+
+    started = time.monotonic()
+    applied = 0
+    failed = 0
+    for cs in moves_map.moves:
+        ok, payload = await _call_tool(
+            camera_tools.handle_set_camera_position,
+            {
+                "fla_path": str(cfg.fla_out_path),
+                "frame": cs.frame,
+                "x": cs.x,
+                "y": cs.y,
+                "zoom": cs.zoom,
+                "rotation": cs.rotation,
+            },
+        )
+        if ok:
+            applied += 1
+        else:
+            failed += 1
+    note = f"applied={applied}, failed={failed}, frames={moves_map.frame_count}"
+    if failed:
+        assembly.warnings.append(f"camera_moves: {failed}/{moves_map.frame_count} failed")
+    assembly.steps.append(StepResult(
+        step="apply_camera_moves",
+        ok=failed == 0,
+        elapsed_seconds=time.monotonic() - started,
+        note=note,
+    ))
+
+
 async def _import_audio_and_lipsync(cfg: ShotConfig, assembly: ShotAssembly) -> None:
     if cfg.audio_wav_path is None:
         assembly.steps.append(StepResult(step="audio", ok=True, note="skipped (no path)"))
@@ -441,10 +508,13 @@ async def process_shot(cfg: ShotConfig, rig_spec: Optional[RigSpec] = None) -> S
     assembly.characters_assembled = characters_assembled
     assembly.keyposes_processed = keyposes_processed_total
 
-    # 5. Audio + lipsync (best-effort)
+    # 5. Camera moves (best-effort; Phase 3m → 3n integration)
+    await _apply_camera_moves(cfg, assembly)
+
+    # 6. Audio + lipsync (best-effort)
     await _import_audio_and_lipsync(cfg, assembly)
 
-    # 6 + 7. Save + render
+    # 7 + 8. Save + render
     final_ok = await _save_and_render(cfg, assembly)
 
     assembly.success = final_ok and characters_assembled > 0

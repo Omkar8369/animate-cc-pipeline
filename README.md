@@ -44,9 +44,12 @@ frames. Editor takes it from there.
 
 ## Status
 
-**Phase 3a — project scaffold + canonical files + 13 locked decisions.**
-See [`CLAUDE.md`](CLAUDE.md) status table for full phase progression
-3a → 3p.
+**Phases 3a–3n shipped.** The MCP server (26 tools), pose-estimation
+node, pose→bone math, end-to-end orchestrator, camera-move detector,
+and the production batch runner are all in. The remaining work is
+Phase 3o (first real-rig validation with Jethalal) and Phase 3p
+(documentation + first real episode test). See [`CLAUDE.md`](CLAUDE.md)
+status table for full phase progression 3a → 3p.
 
 This is a working-in-public repo. Phases ship one at a time with full
 canonical-file sync, drift-grep, and ship discipline (see `CLAUDE.md`).
@@ -65,12 +68,20 @@ python tools/phase3/validate_phase3_env.py
 # 4. Register the MCP server in Claude Code
 python tools/phase3/install_animate_mcp.py
 
-# 5. Run on a shot
-python run_node7_animate.py --shot shot_001 \
-    --rough-mp4 shots/shot_001.mp4 \
-    --metadata metadata.json \
-    --rigs-dir rigs/ \
-    --out-dir output/
+# 5. Run on a single shot (single-config orchestrator CLI)
+python run_node7_animate.py --config batch_config.json
+
+# 6. Run a production batch (with retry + JSONL progress)
+python run_batch.py --config batch_config.json \
+    --retry-count 2 \
+    --jsonl batch_progress.jsonl \
+    --report-out batch_report.json
+
+# 7. (optional) Detect camera moves from a frame sequence before
+#    assembly, then reference the output in your batch config via
+#    `camera_moves_path`:
+python run_camera_detect.py --frames-dir frames/shot_001 \
+    --shot-id shot_001 --out work/shot_001/camera_moves.json
 ```
 
 ## Repository layout

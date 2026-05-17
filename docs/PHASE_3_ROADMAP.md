@@ -782,7 +782,7 @@ Wall time ~140-180s for smoke (8-10 Animate launches).
 
 ### Phase 3m — Camera move detection
 
-**Status:** In progress (2026-05-17)
+**Status:** **Shipped 2026-05-17** (commit `21b9886`)
 
 **Scope** (tight — keeps the pipeline simple):
 
@@ -823,15 +823,33 @@ camera_moves.json. Pure-Python module, no Animate. ~15 unit tests.
 
 ### Phase 3n — Production batch runner
 
-**Status:** Pending
+**Status:** **Shipped 2026-05-17** (this commit)
 
-**Ships:**
+**Scope** (operator-facing batch driver + camera-move integration
+deferred from Phase 3m):
 
-- `run_node11_batch.py` (analogous to prior project's `run_node11.py`)
-  that chains Node 2 → 3 → 4 → 5 → 6 → 7 for all shots in `queue.json`
-- Per-shot retry, JSONL progress log, aggregate `batch_report.json`
-- Per-shot wallclock metrics, identifies slowest shots
-- 6-10 tests
+- Extended `ShotConfig` with `camera_moves_path: Optional[Path]`.
+- Extended `shot_processor` to read camera_moves.json and call
+  `set_camera_position` per frame (`_apply_camera_moves` step
+  inserted between character processing and audio).
+- `pipeline/batch_runner.py`:
+  - `BatchProgress` schema (single JSONL line per attempt).
+  - `BatchReport` schema (final aggregate).
+  - `run_batch(shots, retry_count, jsonl_path, rig_spec)
+    -> BatchReport` — sequential per-shot processor with retry +
+    append-mode JSONL log.
+- `pipeline/cli_batch.py` — CLI with `--retry-count` + `--jsonl`
+  flags.
+- `run_batch.py` — repo-root wrapper.
+- `tests/test_batch_runner.py` — ~15 tests on retry policy,
+  JSONL format, aggregate counts, CLI smoke.
+
+**Deferred**:
+
+- In-line pose / camera detection: operator runs the dedicated
+  CLIs (`cli_node6_pose`, `cli_camera_detector`) as preprocessing.
+- Prior-project Nodes 2-5 chaining: those live in the
+  `animatic-refinement` repo; operator runs them separately.
 
 ---
 
