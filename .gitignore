@@ -42,6 +42,9 @@ ENV/
 # Animate render intermediates that we don't want in git
 animate_temp/
 *.tmp.swf
+# Animate drops this folder in the working directory when a JSFL
+# `eval()` errors out (e.g. during exploratory smoke runs).
+EvalScript error.tmp/
 
 # ─── Output / work dirs ─────────────────────────────────────────────
 # Per-run work directories typically live outside the repo, but if

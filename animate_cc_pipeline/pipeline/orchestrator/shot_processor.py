@@ -184,19 +184,33 @@ async def _import_character(cfg: ShotConfig, char: CharacterConfig, assembly: Sh
         )
         step_name = f"import_character[{char.identity}]_placeholder"
     elif char.has_rig():
-        # Production path — Phase 3c's import_character_rig was deferred,
-        # so for v1 we WARN and skip. Phase 3o's rigger commission re-enables.
-        assembly.warnings.append(
-            f"rig import for {char.identity!r} not yet supported "
-            "(import_character_rig was deferred from Phase 3c; "
-            "shipped in Phase 3o or later)"
+        # Production path (Phase 3o-code). Rig import lands the
+        # whole character library in the target doc and places
+        # an instance at the canvas center. Phase 3o-validation
+        # is the external follow-up that verifies this against
+        # a real rigger-delivered Jethalal.fla.
+        ok, payload = await _call_tool(
+            document_tools.handle_import_character_rig,
+            {
+                "fla_path": str(cfg.fla_out_path),
+                "rig_fla_path": str(char.rig_fla_path),
+                "identity": char.identity,
+                "layer_name": layer_name,
+                "frame": 1,
+                "x": cfg.width / 2,
+                "y": cfg.height / 2,
+            },
         )
-        assembly.steps.append(StepResult(
-            step=f"import_character[{char.identity}]_rig",
-            ok=False,
-            note="rig import deferred to Phase 3o",
-        ))
-        return False
+        step_name = f"import_character[{char.identity}]_rig"
+        if not payload.get("instance_placed", True) and ok:
+            # Library imported but instance not placed — orchestrator
+            # treats this as a soft failure (the character has no
+            # on-stage instance for keyframes to target).
+            assembly.warnings.append(
+                f"rig {char.identity!r}: library imported but instance "
+                "not placed (symbol name mismatch?). Skipping character."
+            )
+            ok = False
     else:
         assembly.warnings.append(
             f"character {char.identity!r} has neither rig_fla_path nor placeholder_image_path; skipped"

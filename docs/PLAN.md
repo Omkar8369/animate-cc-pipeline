@@ -231,14 +231,14 @@ error (bad config, can't write report, etc.).
 Claude Code talks to over the MCP protocol. It exposes Animate
 operations as tools:
 
-### Document tools (Phase 3c)
+### Document tools (Phase 3c + 3o-code)
 
-- `open_new_document(width, height, fps)` → document handle
-- `save_document(path)`
-- `close_document()`
-- `import_animatic_reference(mp4_path, layer_name)`
-- `import_background_image(png_path, layer_name, frame)`
-- `import_character_rig(fla_path)`
+- `create_document(fla_path, width, height, fps)` (3c)
+- `save_document(fla_path)` (3c)
+- `close_document()` (3c)
+- `import_video_as_layer(fla_path, mp4_path, layer_name, frame)` (3c)
+- `import_image_as_layer(fla_path, image_path, layer_name, frame)` (3c)
+- `import_character_rig(fla_path, rig_fla_path, identity, layer_name, frame, x, y)` (3o-code)
 
 ### Symbol placement (Phase 3d)
 

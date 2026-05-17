@@ -188,12 +188,57 @@ IMPORT_VIDEO_AS_LAYER_TOOL = types.Tool(
 )
 
 
+IMPORT_CHARACTER_RIG_TOOL = types.Tool(
+    name="import_character_rig",
+    description=(
+        "Open the target .fla, import a rig .fla into its library "
+        "(library-only, no stage placement), add a new top-level "
+        "layer named layer_name, and place an instance of the "
+        "identity MovieClip symbol on frame `frame` at position "
+        "(x, y). Per RIG_SPEC_v1, the rig .fla must contain a "
+        "MovieClip with name exactly matching `identity` at library "
+        "root. Used by the orchestrator for each character in a "
+        "shot. Wall time ~25-35s (rig imports are heavier than "
+        "single-asset imports because the whole rig library lands "
+        "in the target doc). Returns "
+        "{status, fla_path, identity, layer_name, instance_placed}."
+    ),
+    inputSchema={
+        "type": "object",
+        "properties": {
+            "fla_path": {"type": "string"},
+            "rig_fla_path": {"type": "string"},
+            "identity": {
+                "type": "string",
+                "description": (
+                    "Symbol name in the rig library to place "
+                    "(e.g. 'JETHALAL'). Per RIG_SPEC_v1."
+                ),
+            },
+            "layer_name": {
+                "type": "string",
+                "description": (
+                    "Layer name to add to target timeline. "
+                    "Defaults to identity if not supplied."
+                ),
+            },
+            "frame": {"type": "integer", "minimum": 1, "default": 1},
+            "x": {"type": "number", "default": 960},
+            "y": {"type": "number", "default": 540},
+        },
+        "required": ["fla_path", "rig_fla_path", "identity"],
+        "additionalProperties": False,
+    },
+)
+
+
 ALL_TOOLS: list[types.Tool] = [
     CREATE_DOCUMENT_TOOL,
     SAVE_DOCUMENT_TOOL,
     CLOSE_DOCUMENT_TOOL,
     IMPORT_IMAGE_AS_LAYER_TOOL,
     IMPORT_VIDEO_AS_LAYER_TOOL,
+    IMPORT_CHARACTER_RIG_TOOL,
 ]
 
 
@@ -384,12 +429,101 @@ async def handle_import_video_as_layer(arguments: dict[str, Any] | None) -> list
     )]
 
 
+async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[types.TextContent]:
+    """Phase 3o-code: import a rig .fla and place an instance.
+
+    The handler is preflight-only on the Python side: we check both
+    target .fla and rig .fla exist, then hand off to JSFL. The JSFL
+    writes a sentinel containing either "done", "import_failed", or
+    "instance_not_placed" so we can distinguish failure modes.
+    """
+    args = arguments or {}
+    fla_path = Path(args["fla_path"])
+    rig_fla_path = Path(args["rig_fla_path"])
+    identity = str(args["identity"])
+    layer_name = str(args.get("layer_name") or identity)
+    frame = int(args.get("frame", 1))
+    x = float(args.get("x", 960))
+    y = float(args.get("y", 540))
+
+    for p, name in [(fla_path, "fla_path"), (rig_fla_path, "rig_fla_path")]:
+        if not p.exists():
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "status": "error",
+                    "error": f"{name} does not exist: {p}",
+                }),
+            )]
+
+    sentinel = _new_sentinel(fla_path)
+    _safe_unlink(sentinel)
+
+    template = JSFL_TEMPLATES_DIR / "import_character_rig.jsfl"
+    result = jsfl_bridge.run_jsfl_template(
+        template,
+        substitutions={
+            "FLA_PATH": _to_jsfl_path(fla_path),
+            "RIG_FLA_PATH": _to_jsfl_path(rig_fla_path),
+            "IDENTITY": identity,
+            "LAYER_NAME": layer_name,
+            "FRAME": frame,
+            "X": x,
+            "Y": y,
+            "SENTINEL_PATH": _to_jsfl_path(sentinel),
+        },
+        expected_outputs=[sentinel],
+        poll_timeout=300.0,  # rig imports are heavier (whole library)
+    )
+
+    # Read the sentinel content BEFORE unlinking — JSFL writes one
+    # of "done", "import_failed", "instance_not_placed".
+    sentinel_payload = ""
+    try:
+        sentinel_payload = sentinel.read_text(encoding="utf-8").strip()
+    except (OSError, FileNotFoundError):
+        pass
+    _safe_unlink(sentinel)
+
+    if not result.completed_normally:
+        return [types.TextContent(
+            type="text",
+            text=_err(result, fla_path,
+                      f"import_character_rig did not complete for {rig_fla_path}"),
+        )]
+
+    if sentinel_payload == "import_failed":
+        return [types.TextContent(
+            type="text",
+            text=_err(result, fla_path,
+                      f"JSFL importFile returned false for rig {rig_fla_path}"),
+        )]
+
+    instance_placed = sentinel_payload == "done"
+    payload_extra = {
+        "identity": identity,
+        "layer_name": layer_name,
+        "frame": frame,
+        "instance_placed": instance_placed,
+    }
+    if not instance_placed:
+        payload_extra["warning"] = (
+            f"library imported but instance of {identity!r} "
+            "was not placed on stage (symbol not found in rig library?)"
+        )
+    return [types.TextContent(
+        type="text",
+        text=_ok(result, fla_path, payload_extra),
+    )]
+
+
 TOOL_HANDLERS = {
     "create_document": handle_create_document,
     "save_document": handle_save_document,
     "close_document": handle_close_document,
     "import_image_as_layer": handle_import_image_as_layer,
     "import_video_as_layer": handle_import_video_as_layer,
+    "import_character_rig": handle_import_character_rig,
 }
 
 

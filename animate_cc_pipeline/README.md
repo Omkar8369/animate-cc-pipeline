@@ -59,10 +59,11 @@ Main code for the Animate CC Pipeline.
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
 
-As of Phase 3n (2026-05-17): the production batch runner is in.
-`pipeline/batch_runner.run_batch` wraps `shot_processor.process_shot`
-with retry policy, JSONL per-attempt progress logs, and an aggregate
-`BatchReport`. Phase 3m's camera-move detector is wired into the
-orchestrator so `camera_moves.json` produced by `cli_camera_detector`
-drives Animate's Camera layer during shot assembly. Production wiring
-with real character rigs lands in Phase 3o (rigger commission).
+As of Phase 3o-code (2026-05-17): the rig-consuming MCP tool
+(`import_character_rig`) is shipped. `shot_processor` now imports
+a character rig's full library into the target .fla and places an
+instance on the timeline when `CharacterConfig.rig_fla_path` is
+set, instead of warning-and-skipping (the prior placeholder
+behavior). MCP tool count: 27. SERVER_VERSION: 0.9.0. Phase
+3o-validation (real Jethalal rig + end-to-end smoke) is gated on
+the operator commissioning a rigger.

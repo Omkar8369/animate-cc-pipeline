@@ -150,7 +150,7 @@ animate-cc-pipeline/
 │   │   ├── server.py                ← (Phase 3b) MCP protocol handler
 │   │   ├── jsfl_bridge.py           ← (Phase 3b) Animate.exe runner
 │   │   ├── tools/                   ← one file per tool category
-│   │   │   ├── document.py          ← (Phase 3c)
+│   │   │   ├── document.py          ← (Phase 3c + 3o-code: import_character_rig)
 │   │   │   ├── symbol.py            ← (Phase 3d)
 │   │   │   ├── keyframe.py          ← (Phase 3e)
 │   │   │   ├── bone.py              ← (Phase 3f)
@@ -194,8 +194,9 @@ animate-cc-pipeline/
 | 3k | Pose → bone angle math | **Shipped 2026-05-16** (commit `73feb60`) — 35 unit tests, pure-Python math |
 | 3l | Orchestrator end-to-end (Node 7) | **Shipped 2026-05-16** (commit `2c814c0`) — pipeline functions end-to-end; smoke produces real .fla + .mp4 in ~5 minutes from synthetic inputs |
 | 3m | Camera move detection | **Shipped 2026-05-17** (commit `21b9886`) — 22 unit tests; phase correlation via cv2 + pure-numpy FFT fallback; `camera_moves.json` schema + CLI |
-| 3n | Production batch runner | **Shipped 2026-05-17** (this commit) — 27 unit tests; retry policy, JSONL progress, `BatchReport`, camera_moves orchestrator wiring |
-| 3o | First real-rig validation (Jethalal) | pending |
+| 3n | Production batch runner | **Shipped 2026-05-17** (commit `fcfa265`) — 27 unit tests; retry policy, JSONL progress, `BatchReport`, camera_moves orchestrator wiring |
+| 3o-code | `import_character_rig` MCP tool + orchestrator wiring | **Shipped 2026-05-17** (this commit) — 8 new handler tests + orchestrator test flip; tool count 26 → 27; SERVER_VERSION 0.8.0 → 0.9.0 |
+| 3o-validation | First real-rig validation (Jethalal) | pending — **external blocker:** rigger commission |
 | 3p | Documentation pass + first real episode test | pending |
 
 See `docs/PHASE_3_ROADMAP.md` for what each phase ships.

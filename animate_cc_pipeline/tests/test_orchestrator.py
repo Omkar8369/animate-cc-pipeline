@@ -60,6 +60,9 @@ def mock_handlers(monkeypatch):
     monkeypatch.setattr(document_tools, "handle_save_document", make_handler("save_document"))
     monkeypatch.setattr(document_tools, "handle_import_video_as_layer", make_handler("import_video_as_layer"))
     monkeypatch.setattr(document_tools, "handle_import_image_as_layer", make_handler("import_image_as_layer"))
+    monkeypatch.setattr(document_tools, "handle_import_character_rig", make_handler(
+        "import_character_rig", extra={"instance_placed": True},
+    ))
     monkeypatch.setattr(symbol_tools, "handle_set_instance_position", make_handler("set_instance_position"))
     monkeypatch.setattr(symbol_tools, "handle_set_instance_scale", make_handler("set_instance_scale"))
     monkeypatch.setattr(symbol_tools, "handle_set_instance_rotation", make_handler("set_instance_rotation"))
@@ -229,9 +232,10 @@ def test_failure_in_create_document_aborts_processing(monkeypatch, tmp_path):
     assert any(s.step == "create_document" for s in failed)
 
 
-def test_rig_path_warns_until_phase3o(mock_handlers, tmp_path):
-    """Until Phase 3o ships rig import, a CharacterConfig with rig_fla_path
-    emits a deferral warning."""
+def test_rig_path_calls_import_character_rig(mock_handlers, tmp_path):
+    """Phase 3o-code: a CharacterConfig with rig_fla_path triggers
+    import_character_rig (instead of the warning-and-skip from
+    earlier phases). The character is counted as assembled."""
     from animate_cc_pipeline.pipeline.orchestrator.shot_processor import process_shot
 
     char = CharacterConfig(
@@ -244,9 +248,51 @@ def test_rig_path_warns_until_phase3o(mock_handlers, tmp_path):
         characters=[char],
     )
     assembly = asyncio.run(process_shot(cfg))
-    assert any("Phase 3o" in w for w in assembly.warnings)
-    # No character was assembled
+    tool_names = [c[0] for c in mock_handlers]
+    assert "import_character_rig" in tool_names
+    # The rig-import call passed identity + rig_fla_path
+    rig_call = next(c for c in mock_handlers if c[0] == "import_character_rig")
+    assert rig_call[1]["identity"] == "JETHALAL"
+    assert rig_call[1]["rig_fla_path"].endswith("jethalal.fla")
+    # Character is now ASSEMBLED (Phase 3o-code unblocks this)
+    assert assembly.characters_assembled == 1
+
+
+def test_rig_path_warns_when_instance_not_placed(monkeypatch, tmp_path):
+    """If the rig library imports but the instance can't be placed
+    (e.g. symbol name mismatch), the orchestrator warns and skips
+    the character rather than continuing with a phantom layer."""
+    from animate_cc_pipeline.mcp_server.tools import document as document_tools
+    from animate_cc_pipeline.pipeline.orchestrator.shot_processor import process_shot
+    import mcp.types as types
+
+    async def rig_handler(args):
+        payload = {
+            "status": "ok",
+            "elapsed_seconds": 0.01,
+            "instance_placed": False,
+            "warning": "symbol not found",
+        }
+        return [types.TextContent(type="text", text=json.dumps(payload))]
+
+    async def noop_ok(args):
+        return [types.TextContent(type="text", text=json.dumps({"status": "ok"}))]
+
+    monkeypatch.setattr(document_tools, "handle_create_document", noop_ok)
+    monkeypatch.setattr(document_tools, "handle_save_document", noop_ok)
+    monkeypatch.setattr(document_tools, "handle_import_character_rig", rig_handler)
+
+    char = CharacterConfig(identity="MYSTERY", rig_fla_path=tmp_path / "ghost.fla")
+    cfg = ShotConfig(
+        shot_id="shot_g",
+        fla_out_path=tmp_path / "g.fla",
+        characters=[char],
+    )
+    assembly = asyncio.run(process_shot(cfg))
+    # The character is NOT counted as assembled
     assert assembly.characters_assembled == 0
+    # A warning was recorded
+    assert any("instance not placed" in w.lower() for w in assembly.warnings)
 
 
 def test_assembly_report_aggregates_correctly(mock_handlers, tmp_path):

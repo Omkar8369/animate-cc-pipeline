@@ -38,6 +38,8 @@ def test_server_lists_all_phase3c_tools():
         "close_document",
         "import_image_as_layer",
         "import_video_as_layer",
+        # Phase 3o-code addition
+        "import_character_rig",
     }
     assert _all_tool_names() >= expected
 
@@ -64,6 +66,7 @@ def test_all_jsfl_templates_exist():
         "save_doc.jsfl",
         "import_image.jsfl",
         "import_video.jsfl",
+        "import_character_rig.jsfl",  # Phase 3o-code
         "hello_world.jsfl",  # Phase 3b, still present
     ]
     for name in expected_files:
@@ -96,6 +99,17 @@ def test_import_video_template_has_required_placeholders():
         assert placeholder in content, f"import_video.jsfl missing {placeholder}"
 
 
+def test_import_character_rig_template_has_required_placeholders():
+    from animate_cc_pipeline.mcp_server.tools.document import JSFL_TEMPLATES_DIR
+
+    content = (JSFL_TEMPLATES_DIR / "import_character_rig.jsfl").read_text(encoding="utf-8")
+    for placeholder in [
+        "{{FLA_PATH}}", "{{RIG_FLA_PATH}}", "{{IDENTITY}}", "{{LAYER_NAME}}",
+        "{{FRAME}}", "{{X}}", "{{Y}}", "{{SENTINEL_PATH}}",
+    ]:
+        assert placeholder in content, f"import_character_rig.jsfl missing {placeholder}"
+
+
 def test_save_doc_template_has_required_placeholders():
     from animate_cc_pipeline.mcp_server.tools.document import JSFL_TEMPLATES_DIR
 
@@ -114,6 +128,7 @@ def test_dispatcher_has_all_handlers():
         "close_document",
         "import_image_as_layer",
         "import_video_as_layer",
+        "import_character_rig",  # Phase 3o-code
     }
     assert set(TOOL_HANDLERS) >= expected_handler_names
 
@@ -230,3 +245,187 @@ def test_to_jsfl_path_normalizes_backslashes():
     assert _to_jsfl_path(Path(r"C:\path\to\file")) in (
         "C:/path/to/file",  # if Path.__str__ returns backslashes
     )
+
+
+# ─── import_character_rig (Phase 3o-code) ──────────────────────────
+
+
+def _fake_jsfl_result(completed: bool, missing: list[Path] | None = None):
+    """Build a JsflResult-like stand-in for monkeypatching."""
+    from animate_cc_pipeline.mcp_server.jsfl_bridge import JsflResult
+    return JsflResult(
+        completed_normally=completed,
+        exit_code=None,
+        elapsed_seconds=1.5,
+        rendered_script="// mocked",
+        jsfl_path="(mocked)",
+        missing_outputs=missing or [],
+    )
+
+
+def test_import_character_rig_rejects_missing_fla(tmp_path):
+    from animate_cc_pipeline.mcp_server.tools import document
+
+    rig = tmp_path / "rig.fla"
+    rig.write_bytes(b"\x00\x01")
+    result = asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(tmp_path / "missing.fla"),
+        "rig_fla_path": str(rig),
+        "identity": "JETHALAL",
+    }))
+    payload = json.loads(result[0].text)
+    assert payload["status"] == "error"
+    assert "fla_path does not exist" in payload["error"]
+
+
+def test_import_character_rig_rejects_missing_rig(tmp_path):
+    from animate_cc_pipeline.mcp_server.tools import document
+
+    fla = tmp_path / "target.fla"
+    fla.write_bytes(b"\x00\x01")
+    result = asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(fla),
+        "rig_fla_path": str(tmp_path / "missing_rig.fla"),
+        "identity": "JETHALAL",
+    }))
+    payload = json.loads(result[0].text)
+    assert payload["status"] == "error"
+    assert "rig_fla_path does not exist" in payload["error"]
+
+
+def test_import_character_rig_success_path(monkeypatch, tmp_path):
+    """Mock the JSFL bridge to simulate a successful rig import."""
+    from animate_cc_pipeline.mcp_server.tools import document
+    from animate_cc_pipeline.mcp_server import jsfl_bridge
+
+    fla = tmp_path / "target.fla"
+    fla.write_bytes(b"\x00\x01")
+    rig = tmp_path / "rig.fla"
+    rig.write_bytes(b"\x00\x01")
+
+    # The handler reads the sentinel BEFORE unlinking; simulate the
+    # JSFL writing "done" by intercepting run_jsfl_template and
+    # writing the sentinel ourselves.
+    def fake_run(template, substitutions, expected_outputs, poll_timeout=180.0):
+        sentinel = Path(substitutions["SENTINEL_PATH"])
+        sentinel.write_text("done", encoding="utf-8")
+        return _fake_jsfl_result(completed=True)
+
+    monkeypatch.setattr(jsfl_bridge, "run_jsfl_template", fake_run)
+
+    result = asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(fla),
+        "rig_fla_path": str(rig),
+        "identity": "JETHALAL",
+    }))
+    payload = json.loads(result[0].text)
+    assert payload["status"] == "ok"
+    assert payload["identity"] == "JETHALAL"
+    assert payload["layer_name"] == "JETHALAL"
+    assert payload["instance_placed"] is True
+
+
+def test_import_character_rig_layer_name_defaults_to_identity(monkeypatch, tmp_path):
+    from animate_cc_pipeline.mcp_server.tools import document
+    from animate_cc_pipeline.mcp_server import jsfl_bridge
+
+    fla = tmp_path / "target.fla"; fla.write_bytes(b"\x00")
+    rig = tmp_path / "rig.fla"; rig.write_bytes(b"\x00")
+
+    captured: dict = {}
+
+    def fake_run(template, substitutions, expected_outputs, poll_timeout=180.0):
+        captured.update(substitutions)
+        Path(substitutions["SENTINEL_PATH"]).write_text("done", encoding="utf-8")
+        return _fake_jsfl_result(completed=True)
+
+    monkeypatch.setattr(jsfl_bridge, "run_jsfl_template", fake_run)
+
+    asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(fla),
+        "rig_fla_path": str(rig),
+        "identity": "TAPPU",
+        # no layer_name → should default to "TAPPU"
+    }))
+    assert captured["LAYER_NAME"] == "TAPPU"
+
+
+def test_import_character_rig_jsfl_import_failed(monkeypatch, tmp_path):
+    """Sentinel content 'import_failed' → handler returns error."""
+    from animate_cc_pipeline.mcp_server.tools import document
+    from animate_cc_pipeline.mcp_server import jsfl_bridge
+
+    fla = tmp_path / "target.fla"; fla.write_bytes(b"\x00")
+    rig = tmp_path / "rig.fla"; rig.write_bytes(b"\x00")
+
+    def fake_run(template, substitutions, expected_outputs, poll_timeout=180.0):
+        Path(substitutions["SENTINEL_PATH"]).write_text("import_failed", encoding="utf-8")
+        return _fake_jsfl_result(completed=True)
+
+    monkeypatch.setattr(jsfl_bridge, "run_jsfl_template", fake_run)
+
+    result = asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(fla),
+        "rig_fla_path": str(rig),
+        "identity": "JETHALAL",
+    }))
+    payload = json.loads(result[0].text)
+    assert payload["status"] == "error"
+    assert "importFile returned false" in payload["error"]
+
+
+def test_import_character_rig_instance_not_placed(monkeypatch, tmp_path):
+    """Sentinel 'instance_not_placed' → status=ok but instance_placed=false + warning."""
+    from animate_cc_pipeline.mcp_server.tools import document
+    from animate_cc_pipeline.mcp_server import jsfl_bridge
+
+    fla = tmp_path / "target.fla"; fla.write_bytes(b"\x00")
+    rig = tmp_path / "rig.fla"; rig.write_bytes(b"\x00")
+
+    def fake_run(template, substitutions, expected_outputs, poll_timeout=180.0):
+        Path(substitutions["SENTINEL_PATH"]).write_text("instance_not_placed", encoding="utf-8")
+        return _fake_jsfl_result(completed=True)
+
+    monkeypatch.setattr(jsfl_bridge, "run_jsfl_template", fake_run)
+
+    result = asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(fla),
+        "rig_fla_path": str(rig),
+        "identity": "MYSTERY",
+    }))
+    payload = json.loads(result[0].text)
+    assert payload["status"] == "ok"
+    assert payload["instance_placed"] is False
+    assert "warning" in payload
+
+
+def test_import_character_rig_jsfl_did_not_complete(monkeypatch, tmp_path):
+    """If the bridge times out, handler returns error."""
+    from animate_cc_pipeline.mcp_server.tools import document
+    from animate_cc_pipeline.mcp_server import jsfl_bridge
+
+    fla = tmp_path / "target.fla"; fla.write_bytes(b"\x00")
+    rig = tmp_path / "rig.fla"; rig.write_bytes(b"\x00")
+
+    def fake_run(template, substitutions, expected_outputs, poll_timeout=180.0):
+        # Don't write the sentinel — JSFL "didn't complete"
+        return _fake_jsfl_result(completed=False, missing=expected_outputs)
+
+    monkeypatch.setattr(jsfl_bridge, "run_jsfl_template", fake_run)
+
+    result = asyncio.run(document.handle_import_character_rig({
+        "fla_path": str(fla),
+        "rig_fla_path": str(rig),
+        "identity": "JETHALAL",
+    }))
+    payload = json.loads(result[0].text)
+    assert payload["status"] == "error"
+    assert "did not complete" in payload["error"]
+
+
+def test_import_character_rig_inputschema_requires_identity():
+    """The JSON schema must mark identity, fla_path, rig_fla_path as required."""
+    from animate_cc_pipeline.mcp_server.tools.document import IMPORT_CHARACTER_RIG_TOOL
+
+    required = set(IMPORT_CHARACTER_RIG_TOOL.inputSchema.get("required", []))
+    assert {"fla_path", "rig_fla_path", "identity"} <= required

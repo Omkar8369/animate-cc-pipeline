@@ -153,7 +153,7 @@ MCP server reads these env vars (set in `.claude/settings.json`):
 
 | File | Phase | Tools |
 |------|-------|-------|
-| `tools/document.py` | **3c (shipped)** | create_document, save_document, close_document, import_image_as_layer, import_video_as_layer |
+| `tools/document.py` | **3c + 3o-code (shipped)** | create_document, save_document, close_document, import_image_as_layer, import_video_as_layer, import_character_rig (3o-code) |
 | `tools/symbol.py` | **3d (shipped)** | place_symbol_instance, set_instance_position, set_instance_scale, set_instance_rotation |
 | `tools/keyframe.py` | **3e (shipped, partial)** | insert_keyframe, insert_blank_keyframe, get_keyframes, remove_keyframe (deferred — Animate 2020 hangs on clearKeyframes) |
 | `tools/bone.py` | **3f (shipped, partial)** | set_graphic_first_frame, get_graphic_first_frame, validate_rig; armature-bone tools (list_bones, set_bone_angle, set_bone_position) deferred to Phase 3f-fixup pending real rig |
@@ -178,6 +178,28 @@ All Animate-spawning tools follow the bridge's sentinel-polling +
 force-kill pattern from Phase 3b. Each tool is stateless — opens
 .fla, performs one operation, saves, closes. Long-running Animate
 instance reuse is deferred to Phase 3i.
+
+### Phase 3o-code shipped tool (in detail)
+
+| Tool | Action | Wall time |
+|------|--------|-----------|
+| `import_character_rig(fla_path, rig_fla_path, identity, layer_name, frame, x, y)` | Import the rig .fla's library into the target doc (library-only, no stage placement), add a fresh top-level layer, place an instance of the `identity` MovieClip on the requested frame at (x, y). Per `RIG_SPEC_v1` the rig .fla must contain a MovieClip at library root whose name matches `identity` exactly. | ~25-35s (heavier than single-asset imports — the whole rig library lands in the target doc) |
+
+**Sentinel contract**: the JSFL writes one of three payloads:
+
+- `"done"` — library imported, instance placed (instance_placed=true)
+- `"import_failed"` — `doc.importFile` returned false; handler returns status=error
+- `"instance_not_placed"` — library imported but `lib.addItemToDocument` couldn't find the identity symbol; handler returns status=ok with a warning + `instance_placed=false` so the orchestrator can skip the character cleanly.
+
+**JSFL approach**: `doc.importFile(uri, true)` is Animate's
+library-only import path — it pulls the whole .fla's library into
+the target doc without putting anything on stage. We then add a new
+layer + convertToKeyframes at the target frame + call
+`lib.addItemToDocument({x, y}, identity)` to drop the instance.
+
+Phase 3o-code ships the tool but Phase 3o-validation (gated on
+real rigger delivery) is what proves the JSFL works against actual
+RIG_SPEC_v1-compliant `.fla` files in the wild.
 
 ### Phase 3d shipped tools (in detail)
 

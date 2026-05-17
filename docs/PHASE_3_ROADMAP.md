@@ -853,20 +853,59 @@ deferred from Phase 3m):
 
 ---
 
-### Phase 3o — First real-rig validation (Jethalal)
+### Phase 3o-code — `import_character_rig` MCP tool
 
-**Status:** Pending
+**Status:** **Shipped 2026-05-17** (this commit)
+
+**Ships:**
+
+- `jsfl_templates/import_character_rig.jsfl` — opens target .fla,
+  imports rig .fla into the library (`doc.importFile(rigPath, true)`),
+  adds a fresh layer, places an instance of the identity MovieClip at
+  the requested stage position. Sentinel content distinguishes
+  "done" / "import_failed" / "instance_not_placed" failure modes.
+- `mcp_server/tools/document.py` gains
+  `IMPORT_CHARACTER_RIG_TOOL` + `handle_import_character_rig`.
+- `mcp_server/server.py` `SERVER_VERSION` bumps `0.8.0 → 0.9.0`;
+  tool count `26 → 27`.
+- `pipeline/orchestrator/shot_processor.py` `_import_character`
+  replaces the prior warning-and-skip on `rig_fla_path` with a real
+  `import_character_rig` call. When the JSFL reports
+  `instance_placed=false` (symbol name mismatch), the orchestrator
+  warns and treats the character as not assembled rather than
+  continuing with a phantom layer.
+- Tests: 8 new handler tests (mocked bridge — three sentinel-content
+  outcomes, missing-file errors, layer_name defaulting, schema
+  shape) + orchestrator test flip from "warns until Phase 3o" to
+  "calls import_character_rig and counts character as assembled".
+  Full suite: 276 unit tests.
+
+**Phase 3o-code intentionally ships WITHOUT a real rig** — the JSFL
+template was authored against the documented Adobe Animate JSFL API
++ the RIG_SPEC_v1 contract; integration validation lands in Phase
+3o-validation.
+
+---
+
+### Phase 3o-validation — First real-rig validation (Jethalal)
+
+**Status:** Pending — **external blocker: rigger commission**
 
 **Ships:**
 
 - A real Jethalal rig built by a freelance rigger conforming to
   `RIG_SPEC_v1`
-- Rig validator passes on Jethalal
+- `rig_validator` passes on `rigs/jethalal.fla`
 - End-to-end pipeline run on a real TMKOC shot featuring Jethalal
+  (using `run_batch.py`)
 - Identifies + documents any rig-contract gaps (e.g., mouth state
-  names that need adjusting); fixup phase if needed
+  names that need adjusting, JSFL bugs in the freshly-written
+  `import_character_rig.jsfl` only surfacing against real
+  rig structure); fixup phase if needed.
 
-**Phase 3o is gated on operator's rigger delivering the rig.**
+**Phase 3o-validation is gated on the operator's rigger delivering
+the rig.** The code half (Phase 3o-code) is already shipped so when
+the rig arrives no new code is needed before smoke-testing.
 
 ---
 

@@ -44,12 +44,14 @@ frames. Editor takes it from there.
 
 ## Status
 
-**Phases 3a–3n shipped.** The MCP server (26 tools), pose-estimation
-node, pose→bone math, end-to-end orchestrator, camera-move detector,
-and the production batch runner are all in. The remaining work is
-Phase 3o (first real-rig validation with Jethalal) and Phase 3p
-(documentation + first real episode test). See [`CLAUDE.md`](CLAUDE.md)
-status table for full phase progression 3a → 3p.
+**Phases 3a–3n + 3o-code shipped.** The MCP server (27 tools, incl.
+`import_character_rig`), pose-estimation node, pose→bone math,
+end-to-end orchestrator, camera-move detector, production batch
+runner, and the rig-consuming code path are all in. Remaining work
+is Phase 3o-validation (gated on rigger commissioning a real
+Jethalal `.fla`) and Phase 3p (documentation pass + first real
+episode test). See [`CLAUDE.md`](CLAUDE.md) status table for full
+phase progression 3a → 3p.
 
 This is a working-in-public repo. Phases ship one at a time with full
 canonical-file sync, drift-grep, and ship discipline (see `CLAUDE.md`).

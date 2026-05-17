@@ -45,7 +45,7 @@ except ImportError as exc:  # pragma: no cover - exercised at runtime only
 # ─── Server metadata ────────────────────────────────────────────────
 
 SERVER_NAME = "animate-cc"
-SERVER_VERSION = "0.8.0"  # Phase 3i: camera + render
+SERVER_VERSION = "0.9.0"  # Phase 3o-code: import_character_rig
 
 DEFAULT_ANIMATE_CC_EXE = (
     r"C:\Program Files\Adobe\Adobe Animate 2020\Animate.exe"
