@@ -44,19 +44,21 @@ frames. Editor takes it from there.
 
 ## Status
 
-**Phases 3a–3n + 3o-code shipped.** The MCP server (27 tools, incl.
-`import_character_rig`), pose-estimation node, pose→bone math,
-end-to-end orchestrator, camera-move detector, production batch
-runner, and the rig-consuming code path are all in. Remaining work
-is Phase 3o-validation (gated on rigger commissioning a real
-Jethalal `.fla`) and Phase 3p (documentation pass + first real
-episode test). See [`CLAUDE.md`](CLAUDE.md) status table for full
+**Phases 3a–3n + 3o-code + 3p-docs shipped.** The MCP server
+(27 tools, incl. `import_character_rig`), pose-estimation node,
+pose→bone math, end-to-end orchestrator, camera-move detector,
+production batch runner, rig-consuming code path, and the
+environment validator (`tools/phase3/validate_phase3_env.py`) are
+all in. Remaining work is Phase 3o-validation (gated on rigger
+commissioning a real Jethalal `.fla`) and Phase 3p-validation
+(first real 22-min episode + production sign-off; gated on
+3o-validation). See [`CLAUDE.md`](CLAUDE.md) status table for full
 phase progression 3a → 3p.
 
 This is a working-in-public repo. Phases ship one at a time with full
 canonical-file sync, drift-grep, and ship discipline (see `CLAUDE.md`).
 
-## Quick start (once Phase 3p ships)
+## Quick start (works today for pure-Python paths; .fla / MP4 work needs a rigger-delivered rig per Phase 3o-validation)
 
 ```bash
 # 1. Install Adobe Animate CC (2020 or later) on Windows

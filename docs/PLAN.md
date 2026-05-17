@@ -188,11 +188,23 @@ installed). For each shot in the queue:
 
 Animator opens `auto_animated.fla` for review and touch-ups.
 
-### Node 8 onward — replaced by Animate
+### Node 8 — Camera move detection
 
-Prior project's Nodes 8 (compositing), 9 (timing reconstruction),
-and 10 (PNG→MP4) are obsoleted here — Animate handles compositing,
-timeline, and MP4 export natively.
+**Shipped in Phase 3m** as `pipeline/camera_detector.py` +
+`pipeline/cli_camera_detector.py` + repo-root `run_camera_detect.py`.
+Reads a directory of `frame_NNNN.png` files extracted from the
+rough animatic (Node 2 output), uses phase correlation (cv2 with
+pure-numpy FFT fallback) to detect per-pair translation, emits
+`camera_moves.json` matching the `CameraMovesMap` schema. The
+batch runner (Phase 3n) picks up that file via
+`ShotConfig.camera_moves_path` and the orchestrator drives Animate's
+Camera layer per frame.
+
+### Node 9 / 10 — replaced by Animate
+
+Prior project's Nodes 9 (timing reconstruction) and 10 (PNG→MP4)
+are obsoleted here — Animate handles compositing, timeline, and
+MP4 export natively via the Phase 3i render tools.
 
 ### Node 11 — Batch Management
 
@@ -218,6 +230,10 @@ error (bad config, can't write report, etc.).
   subprocess
 - Node 7 (Animate orchestrator) requires Animate.exe on PATH or via
   `ANIMATE_CC_EXE` env var
+- Rig consumption is via the `import_character_rig` MCP tool
+  (Phase 3o-code), which calls `doc.importFile(rig_fla_path, true)`
+  to land the whole rig library in the target doc, then places an
+  instance of the identity MovieClip on a fresh layer.
 - Pre-Node-7 check: validate every `rigFilename` in `queue.json`
   passes `rig_validator.py`
 - In-line pose detection + camera-move detection are NOT auto-chained;
@@ -251,16 +267,24 @@ operations as tools:
 
 - `insert_keyframe(layer, frame)`
 - `insert_blank_keyframe(layer, frame)`
-- `remove_keyframe(layer, frame)`
+- `remove_keyframe(layer, frame)` (deferred — Animate 2020 hangs
+  on `clearKeyframes`; ships as a registered tool but its smoke
+  is skipped; expected to work on Animate 2022+)
 - `get_keyframes(layer)` → list of frame numbers
 
 ### Bones (Phase 3f)
 
-- `list_bones(rig_instance_id)` → list of bone paths
-- `set_bone_angle(rig_instance, bone_path, frame, angle_degrees)`
-- `set_bone_position(rig_instance, bone_path, frame, x, y)`
-- `set_graphic_first_frame(instance_id, frame_index)`
-  *(for rotation-strip symbol swapping)*
+- `set_graphic_first_frame(fla_path, layer_name, frame, target_first_frame, loop_mode)`
+  — the rotation-strip primitive: pin a Graphic Symbol instance
+  to a specific frame of its underlying timeline.
+- `get_graphic_first_frame(fla_path, layer_name, frame)` — readback.
+- `validate_rig(fla_path, identity)` — runs `rig_validator` against
+  the .fla and returns a structured report.
+- `list_bones`, `set_bone_angle`, `set_bone_position` —
+  **deferred to Phase 3f-fixup** pending real armature-rigged
+  `.fla` to test against. The shipped rotation-strip primitive
+  + RIG_SPEC_v1 covers the v1 rigging style; armature is a v2
+  track. (Rationale documented in Phase 3f's roadmap entry.)
 
 ### Tweens (Phase 3g)
 

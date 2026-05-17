@@ -59,11 +59,20 @@ Main code for the Animate CC Pipeline.
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
 
-As of Phase 3o-code (2026-05-17): the rig-consuming MCP tool
-(`import_character_rig`) is shipped. `shot_processor` now imports
-a character rig's full library into the target .fla and places an
-instance on the timeline when `CharacterConfig.rig_fla_path` is
-set, instead of warning-and-skipping (the prior placeholder
-behavior). MCP tool count: 27. SERVER_VERSION: 0.9.0. Phase
-3o-validation (real Jethalal rig + end-to-end smoke) is gated on
-the operator commissioning a rigger.
+As of Phase 3p-docs (2026-05-17): the environment validator
+(`tools/phase3/validate_phase3_env.py`) is shipped with 30 unit
+tests; canonical files cross-checked and reconciled with as-shipped
+reality. Operators run the validator before bringup on a new
+machine to surface missing deps, wrong Animate.exe path, broken
+settings.local.json, etc. before the first end-to-end attempt.
+
+Prior milestone (Phase 3o-code, also 2026-05-17): the rig-consuming
+MCP tool `import_character_rig` shipped — `shot_processor` now
+imports a character rig's full library into the target .fla and
+places an instance on the timeline when `CharacterConfig.rig_fla_path`
+is set. MCP tool count: 27. SERVER_VERSION: 0.9.0.
+
+Remaining work is Phase 3o-validation (real Jethalal rig +
+end-to-end smoke; gated on operator commissioning a rigger) and
+Phase 3p-validation (first real 22-min episode + production
+sign-off; gated on 3o-validation).

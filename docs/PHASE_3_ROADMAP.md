@@ -775,8 +775,10 @@ package layout established in Phase 3j):
 **Phase 3l done criteria**: unit tests pass on mocked handlers;
 smoke produces a real MP4 from synthetic data (placeholder image
 moves across the canvas over several frames). The orchestrator code
-is wired up to all 26 MCP tools + the pose-math module from 3k.
-Wall time ~140-180s for smoke (8-10 Animate launches).
+is wired up to the MCP toolbelt as of 3l ship (26 tools; grew to
+27 with Phase 3o-code's `import_character_rig`) + the pose-math
+module from 3k. Wall time ~140-180s for smoke (8-10 Animate
+launches).
 
 ---
 
@@ -909,18 +911,55 @@ the rig arrives no new code is needed before smoke-testing.
 
 ---
 
-### Phase 3p — Documentation pass + first real episode test
+### Phase 3p-docs — Environment validator + canonical-files cross-check
 
-**Status:** Pending
+**Status:** **Shipped 2026-05-17** (this commit)
 
 **Ships:**
 
-- All six canonical files cross-checked and synced
-- `tools/phase3/validate_phase3_env.py` written and used to test
-  pipeline bringup on a clean machine
-- First real 22-min episode processed end-to-end
-- Per-episode metrics: wallclock, animator-touchup-time, cost
-- Production-readiness sign-off in CLAUDE.md status table
+- `tools/phase3/validate_phase3_env.py` — environment validator
+  with 10 checks (Python version, required modules, optional
+  modules, Animate.exe location, `.claude/settings.local.json`
+  shape, canonical files exist, run wrappers exist, JSFL templates
+  present, MCP server imports, pipeline modules import). CLI
+  exit codes: 0 all-fatal-checks-passed, 1 fatal failure(s),
+  with `--strict` to promote warnings to fatal. Supports `--json`
+  for machine-readable output.
+- `tests/test_validate_phase3_env.py` — 30 unit tests covering
+  every check function (success + failure paths via monkeypatch),
+  the `run_all_checks` aggregator (including crash-resilience),
+  the `format_results` formatter, and the CLI dispatch.
+- Canonical-files cross-check pass: docs/PLAN.md's Node
+  descriptions reconciled with as-shipped reality (Node 8 now
+  describes camera-move detection per Phase 3m; Node 11 mentions
+  `import_character_rig`; bone-tool and remove_keyframe lists
+  annotated with their deferred status).
+- CLAUDE.md status-table headers reconciled; README.md
+  Quick-start section updated to reflect what works today.
+
+**Phase 3p-docs done criteria**: `validate_phase3_env.py` exits
+0 on the operator's primary machine; all 30 unit tests pass; the
+276 → 306 unit-test sweep is green; all six canonical files
+re-read top-to-bottom with no drift to fix.
+
+---
+
+### Phase 3p-validation — First real 22-min episode + production sign-off
+
+**Status:** Pending — **external blocker:** depends on
+Phase 3o-validation (rig). Once a real Jethalal rig lands and
+3o-validation runs an end-to-end shot smoke, 3p-validation runs
+a full 22-minute episode through the batch runner.
+
+**Ships:**
+
+- First real 22-min episode processed end-to-end via `run_batch.py`
+- Per-episode metrics: wallclock per shot, animator-touchup-time
+  estimate (sampled from a small batch of shots an animator
+  reviews), aggregate cost per episode.
+- Production-readiness sign-off in CLAUDE.md status table.
+- Any fixup phases discovered during the run (e.g., orchestrator
+  edge cases that surface only on real shots).
 
 ---
 

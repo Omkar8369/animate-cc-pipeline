@@ -49,7 +49,7 @@ fresh here so the new repo is self-contained.
 
 We build **one phase at a time**. Each phase is the smallest commit
 that lands a working, tested chunk. The phases are listed in
-`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3a).
+`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3p-docs).
 
 For every phase:
 1. **Discuss + lock** the decisions for this phase. Add to the
@@ -195,9 +195,10 @@ animate-cc-pipeline/
 | 3l | Orchestrator end-to-end (Node 7) | **Shipped 2026-05-16** (commit `2c814c0`) — pipeline functions end-to-end; smoke produces real .fla + .mp4 in ~5 minutes from synthetic inputs |
 | 3m | Camera move detection | **Shipped 2026-05-17** (commit `21b9886`) — 22 unit tests; phase correlation via cv2 + pure-numpy FFT fallback; `camera_moves.json` schema + CLI |
 | 3n | Production batch runner | **Shipped 2026-05-17** (commit `fcfa265`) — 27 unit tests; retry policy, JSONL progress, `BatchReport`, camera_moves orchestrator wiring |
-| 3o-code | `import_character_rig` MCP tool + orchestrator wiring | **Shipped 2026-05-17** (this commit) — 8 new handler tests + orchestrator test flip; tool count 26 → 27; SERVER_VERSION 0.8.0 → 0.9.0 |
+| 3o-code | `import_character_rig` MCP tool + orchestrator wiring | **Shipped 2026-05-17** (commit `9ca8f76`) — 8 new handler tests + orchestrator test flip; tool count 26 → 27; SERVER_VERSION 0.8.0 → 0.9.0 |
 | 3o-validation | First real-rig validation (Jethalal) | pending — **external blocker:** rigger commission |
-| 3p | Documentation pass + first real episode test | pending |
+| 3p-docs | Environment validator + canonical-files cross-check | **Shipped 2026-05-17** (this commit) — `tools/phase3/validate_phase3_env.py` (10 checks) + 30 unit tests + Node-section cleanups in docs/PLAN.md |
+| 3p-validation | First real 22-min episode + production sign-off | pending — **external blocker:** depends on 3o-validation (rig) |
 
 See `docs/PHASE_3_ROADMAP.md` for what each phase ships.
 
@@ -481,7 +482,10 @@ them:
   running Animate before launch via `kill_existing_first=True`.
 - **Adobe CC is subscription, version-pinned.** If the operator
   upgrades to Animate 2024/2025, JSFL behavior should be backward-
-  compatible; we'll add a compatibility test in Phase 3o.
+  compatible; a future fixup phase will add a compatibility test
+  if regressions show up. Phase 3o-code's `import_character_rig`
+  uses `doc.importFile(uri, true)` which is documented in Animate
+  2018+ so it should survive an upgrade.
 - **GitHub user: Omkar8369.** Repo will be public once first pushed.
 - **RunPod EU-RO region** has the operator's persistent network
   volume (storyboard-models, 150 GB) from the prior project — same
