@@ -44,16 +44,18 @@ frames. Editor takes it from there.
 
 ## Status
 
-**Phases 3a–3n + 3o-code + 3p-docs shipped.** The MCP server
-(27 tools, incl. `import_character_rig`), pose-estimation node,
-pose→bone math, end-to-end orchestrator, camera-move detector,
-production batch runner, rig-consuming code path, and the
-environment validator (`tools/phase3/validate_phase3_env.py`) are
-all in. Remaining work is Phase 3o-validation (gated on rigger
-commissioning a real Jethalal `.fla`) and Phase 3p-validation
-(first real 22-min episode + production sign-off; gated on
-3o-validation). See [`CLAUDE.md`](CLAUDE.md) status table for full
-phase progression 3a → 3p.
+**Phases 3a–3n + 3o-code + 3p-docs + 3o-adapter shipped.** The MCP
+server (27 tools, incl. `import_character_rig`), pose-estimation
+node, pose→bone math, end-to-end orchestrator, camera-move detector,
+production batch runner, rig-consuming code path, environment
+validator, and rig label sidecars (which adapt the rigger's
+obfuscated symbol names to operator-friendly labels) are all in. 31
+production rigs received from the rigger on 2026-05-17. Remaining
+work is Phase 3o-validation (real Jethalal end-to-end Animate.exe
+smoke run) and Phase 3p-validation (first real 22-min episode +
+production sign-off; gated on 3o-validation). See
+[`CLAUDE.md`](CLAUDE.md) status table for full phase progression
+3a → 3p.
 
 This is a working-in-public repo. Phases ship one at a time with full
 canonical-file sync, drift-grep, and ship discipline (see `CLAUDE.md`).
@@ -86,6 +88,17 @@ python run_batch.py --config batch_config.json \
 #    `camera_moves_path`:
 python run_camera_detect.py --frames-dir frames/shot_001 \
     --shot-id shot_001 --out work/shot_001/camera_moves.json
+
+# 8. (one-time per character rig) Generate a labels sidecar so the
+#    pipeline can resolve angle names against the rigger's obfuscated
+#    library symbol names:
+python tools/phase3/rig_labeler.py --rig rigs/jethalal.fla \
+    --character JETHALAL --init
+#    Then edit `rigs/jethalal.fla.labels.json` (or
+#    `rigs/labels/jethalal.labels.json`) to set the `label` field on
+#    each placement to one of: front, front_3q_l, front_3q_r, side_l,
+#    side_r, back, back_3q_l, back_3q_r.
+python tools/phase3/rig_labeler.py --rig rigs/jethalal.fla --verify
 ```
 
 ## Repository layout

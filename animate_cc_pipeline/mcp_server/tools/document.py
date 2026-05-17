@@ -436,15 +436,29 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
     target .fla and rig .fla exist, then hand off to JSFL. The JSFL
     writes a sentinel containing either "done", "import_failed", or
     "instance_not_placed" so we can distinguish failure modes.
+
+    Phase 3o-adapter: before calling JSFL we resolve `identity`
+    against any `<rig>.labels.json` sidecar. The sidecar maps
+    operator-friendly angle labels (`front`, `side_l`, ...) to the
+    actual library symbol names — production rigs often have
+    obfuscated symbol names that the operator can't remember.
     """
+    # Lazy import — keep document.py independent of pipeline/ for
+    # non-rig callers.
+    from ...pipeline.rig_labels import resolve_identity_via_sidecar
+
     args = arguments or {}
     fla_path = Path(args["fla_path"])
     rig_fla_path = Path(args["rig_fla_path"])
-    identity = str(args["identity"])
-    layer_name = str(args.get("layer_name") or identity)
+    identity_raw = str(args["identity"])
+    layer_name = str(args.get("layer_name") or identity_raw)
     frame = int(args.get("frame", 1))
     x = float(args.get("x", 960))
     y = float(args.get("y", 540))
+
+    # Resolve identity via sidecar if one exists. Pass-through if
+    # not — the operator may have used a direct library symbol name.
+    identity, sidecar_used = resolve_identity_via_sidecar(rig_fla_path, identity_raw)
 
     for p, name in [(fla_path, "fla_path"), (rig_fla_path, "rig_fla_path")]:
         if not p.exists():
@@ -502,10 +516,13 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
     instance_placed = sentinel_payload == "done"
     payload_extra = {
         "identity": identity,
+        "identity_requested": identity_raw,
         "layer_name": layer_name,
         "frame": frame,
         "instance_placed": instance_placed,
     }
+    if sidecar_used is not None:
+        payload_extra["sidecar"] = str(sidecar_used)
     if not instance_placed:
         payload_extra["warning"] = (
             f"library imported but instance of {identity!r} "

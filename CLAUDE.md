@@ -49,7 +49,7 @@ fresh here so the new repo is self-contained.
 
 We build **one phase at a time**. Each phase is the smallest commit
 that lands a working, tested chunk. The phases are listed in
-`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3p-docs).
+`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3o-adapter).
 
 For every phase:
 1. **Discuss + lock** the decisions for this phase. Add to the
@@ -141,6 +141,7 @@ animate-cc-pipeline/
 │   │   ├── cli_camera_detector.py   ← (3m) Node 8 CLI
 │   │   ├── batch_runner.py          ← (3n) retry + JSONL + BatchReport
 │   │   ├── cli_batch.py             ← (3n) production batch CLI
+│   │   ├── rig_labels.py            ← (3o-adapter) XFL parser + sidecar I/O
 │   │   └── orchestrator/
 │   │       ├── assembly_schemas.py  ← (3l) ShotConfig + ShotAssembly + AssemblyReport
 │   │       ├── shot_processor.py    ← (3l) per-shot driver
@@ -169,12 +170,16 @@ animate-cc-pipeline/
 │   ├── README.md
 │   ├── _template/
 │   │   └── template_character.fla   ← (Phase 3f) placeholder rig
-│   └── <character>.fla              ← (Phase 3o) production rigs
+│   ├── labels/                      ← (3o-adapter) per-rig label sidecars
+│   │   └── <character>.labels.json  ← maps angle labels → obfuscated symbol names
+│   └── <character>.fla              ← (Phase 3o) production rigs (outside repo)
 ├── backgrounds/                     ← location plate PNGs
 └── tools/
     └── phase3/
         ├── install_animate_mcp.py   ← registers MCP server
-        └── validate_phase3_env.py   ← env check (Animate path, Python, deps)
+        ├── validate_phase3_env.py   ← (3p-docs) env check
+        ├── rig_labeler.py           ← (3o-adapter) sidecar generator/verifier
+        └── setup_local_python.py    ← writes .claude/settings.local.json
 ```
 
 ## Current status (update at end of each phase)
@@ -196,9 +201,10 @@ animate-cc-pipeline/
 | 3m | Camera move detection | **Shipped 2026-05-17** (commit `21b9886`) — 22 unit tests; phase correlation via cv2 + pure-numpy FFT fallback; `camera_moves.json` schema + CLI |
 | 3n | Production batch runner | **Shipped 2026-05-17** (commit `fcfa265`) — 27 unit tests; retry policy, JSONL progress, `BatchReport`, camera_moves orchestrator wiring |
 | 3o-code | `import_character_rig` MCP tool + orchestrator wiring | **Shipped 2026-05-17** (commit `9ca8f76`) — 8 new handler tests + orchestrator test flip; tool count 26 → 27; SERVER_VERSION 0.8.0 → 0.9.0 |
-| 3o-validation | First real-rig validation (Jethalal) | pending — **external blocker:** rigger commission |
-| 3p-docs | Environment validator + canonical-files cross-check | **Shipped 2026-05-17** (this commit) — `tools/phase3/validate_phase3_env.py` (10 checks) + 30 unit tests + Node-section cleanups in docs/PLAN.md |
-| 3p-validation | First real 22-min episode + production sign-off | pending — **external blocker:** depends on 3o-validation (rig) |
+| 3o-validation | First real-rig validation (Jethalal) | pending — rigs received 2026-05-17 (31 chars at `C:/.../CHARACTER/CHARACTER/`); labeled `jethalal.labels.json` worked example shipped in 3o-adapter; awaiting end-to-end smoke run |
+| 3p-docs | Environment validator + canonical-files cross-check | **Shipped 2026-05-17** (commit `1eaac0a`) — `tools/phase3/validate_phase3_env.py` (10 checks) + 30 unit tests + Node-section cleanups in docs/PLAN.md |
+| 3o-adapter | Rig label sidecars (real-rig name resolution) | **Shipped 2026-05-17** (this commit) — `pipeline/rig_labels.py` (XFL-zip parser + sidecar schema) + `tools/phase3/rig_labeler.py` CLI + 43 unit tests; lenient zip reader works around Adobe's non-standard EOCD; worked example for JETHALAL committed to `rigs/labels/jethalal.labels.json` |
+| 3p-validation | First real 22-min episode + production sign-off | pending — **external blocker:** depends on 3o-validation (full rig smoke) |
 
 See `docs/PHASE_3_ROADMAP.md` for what each phase ships.
 

@@ -201,6 +201,16 @@ Phase 3o-code ships the tool but Phase 3o-validation (gated on
 real rigger delivery) is what proves the JSFL works against actual
 RIG_SPEC_v1-compliant `.fla` files in the wild.
 
+**Phase 3o-adapter (sidecar identity resolution)**: production rigs
+from the operator's rigger use obfuscated library symbol names. The
+handler now calls `pipeline.rig_labels.resolve_identity_via_sidecar`
+to translate operator-friendly angle labels (`front`, `side_l`,
+`back`, ...) to the actual obfuscated library names. The sidecar
+file is at `<rig.fla>.labels.json` next to the rig (or wherever a
+caller points it). The handler's response payload includes both
+`identity_requested` and (resolved) `identity` so the orchestrator
+can confirm what was actually imported.
+
 ### Phase 3d shipped tools (in detail)
 
 | Tool | Action | Wall time |

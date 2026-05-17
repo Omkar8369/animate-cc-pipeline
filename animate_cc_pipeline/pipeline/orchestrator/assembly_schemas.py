@@ -21,12 +21,25 @@ class CharacterConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     identity: str
+    """The character's display name (e.g. 'JETHALAL'). Used as the
+    target-doc layer name. NOT necessarily the library symbol name
+    inside the rig — that resolution happens via the `angle` field
+    + rig labels sidecar (Phase 3o-adapter)."""
+
     rig_fla_path: Optional[Path] = None
     placeholder_image_path: Optional[Path] = None
     pose_map_path: Optional[Path] = None
     """Path to this character's pose_map.json (from Node 6 /
     Phase 3j). If None, the character will be placed at frame 1
     only without any per-frame animation."""
+
+    angle: str = "front"
+    """Which angle of the turnaround to use when placing the
+    character (Phase 3o-adapter). Resolved against the rig's
+    labels.json sidecar — if no sidecar exists, this string is
+    passed through to JSFL as the library symbol name (advanced
+    use). Default 'front' matches STANDARD_ANGLE_LABELS in
+    pipeline/rig_labels.py."""
 
     def has_rig(self) -> bool:
         return self.rig_fla_path is not None

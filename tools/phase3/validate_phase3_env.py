@@ -271,6 +271,7 @@ def check_pipeline_modules_import() -> CheckResult:
         "animate_cc_pipeline.pipeline.pose_to_bones",
         "animate_cc_pipeline.pipeline.camera_detector",
         "animate_cc_pipeline.pipeline.batch_runner",
+        "animate_cc_pipeline.pipeline.rig_labels",  # Phase 3o-adapter
         "animate_cc_pipeline.pipeline.orchestrator.shot_processor",
         "animate_cc_pipeline.pipeline.orchestrator.assembly_schemas",
     ]

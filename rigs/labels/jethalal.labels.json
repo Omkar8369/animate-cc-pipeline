@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "character": "JETHALAL",
+  "rig_fla_filename": "JETHALAL_Turnaround_FINAL.fla",
+  "labels": {
+    "front": "fgbfgfgn",
+    "front_3q_r": "axadfvdfv",
+    "side_r": "fhnfhnhnSDVSDAV",
+    "back_3q_r": "SDVSD",
+    "front_3q_l": "NHNNFGH",
+    "back": "nfghnfghfhn",
+    "back_3q_l": "hnfhfnfghn"
+  },
+  "by_position": [
+    {
+      "index": 1,
+      "x_pos": 366.45,
+      "y_pos": 1028.05,
+      "library_name": "fgbfgfgn",
+      "label": "front"
+    },
+    {
+      "index": 2,
+      "x_pos": 811.9,
+      "y_pos": 1031.65,
+      "library_name": "axadfvdfv",
+      "label": "front_3q_r"
+    },
+    {
+      "index": 3,
+      "x_pos": 1178.2,
+      "y_pos": 1031.3,
+      "library_name": "fhnfhnhnSDVSDAV",
+      "label": "side_r"
+    },
+    {
+      "index": 4,
+      "x_pos": 1567.9,
+      "y_pos": 1031.4,
+      "library_name": "SDVSD",
+      "label": "back_3q_r"
+    },
+    {
+      "index": 5,
+      "x_pos": 1953.55,
+      "y_pos": 1028.8,
+      "library_name": "NHNNFGH",
+      "label": "front_3q_l"
+    },
+    {
+      "index": 6,
+      "x_pos": 2428.4,
+      "y_pos": 1026.45,
+      "library_name": "nfghnfghfhn",
+      "label": "back"
+    },
+    {
+      "index": 7,
+      "x_pos": 2853.6,
+      "y_pos": 1024.65,
+      "library_name": "hnfhfnfghn",
+      "label": "back_3q_l"
+    }
+  ]
+}

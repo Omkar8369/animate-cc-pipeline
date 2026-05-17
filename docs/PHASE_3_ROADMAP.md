@@ -889,9 +889,99 @@ template was authored against the documented Adobe Animate JSFL API
 
 ---
 
+### Phase 3o-adapter — Rig label sidecars (real-rig name resolution)
+
+**Status:** **Shipped 2026-05-17** (this commit)
+
+**Why it exists:** The 31 production rigs the operator received from
+the rigger have obfuscated library symbol names (e.g. `fgbfgfgn`,
+`DGHGHENHGE`) instead of human-readable names like `JETHALAL_front`.
+RIG_SPEC_v1's name-based identity contract can't address these
+symbols directly. Rather than rename hundreds of symbols by hand
+across 31 .fla files (or rewrite the spec to be name-agnostic),
+Phase 3o-adapter ships a tiny per-rig sidecar that maps
+operator-friendly angle labels (`front`, `side_l`, `back`) to the
+actual obfuscated names.
+
+**Ships:**
+
+- `pipeline/rig_labels.py`:
+  - Pydantic schemas: `RigPlacement` (one Graphic Symbol on the
+    rig's main timeline), `RigLabels` (sidecar contents).
+  - `_read_fla_zip_lenient` — works around Adobe Animate's
+    non-standard XFL zip format. Animate writes an
+    End-Of-Central-Directory record whose `cd_size` field is
+    54 bytes larger than the actual central directory. Python's
+    stdlib `zipfile` refuses to open such files; we patch the
+    `cd_size` field in memory before handing the bytes to
+    `zipfile.ZipFile`. Pure-Python — no Animate.exe needed.
+  - `extract_placements_from_fla` — reads `DOMDocument.xml` from
+    the .fla zip and returns all Graphic Symbol placements on the
+    main timeline, sorted left-to-right (matches the order
+    operators see on the rigger's PNG turnaround sheet).
+  - `resolve_identity_via_sidecar` — best-effort identity →
+    library-symbol-name resolution. Pass-through if no sidecar
+    exists.
+- `tools/phase3/rig_labeler.py` — three-mode CLI:
+  - `--init` generates a placeholder sidecar from the .fla;
+  - `--verify` checks at least one placement has been filled in;
+  - `--list` prints the resolved labels in a human-readable table.
+- `pipeline/orchestrator/assembly_schemas.py` `CharacterConfig`
+  gains an `angle: str = "front"` field. The orchestrator passes
+  `char.angle` as the identity arg to `import_character_rig` —
+  the handler resolves it against the rig's sidecar.
+- `mcp_server/tools/document.py` `handle_import_character_rig`
+  now calls `resolve_identity_via_sidecar(rig_fla_path, identity)`
+  before invoking JSFL. The response payload includes
+  `identity_requested` (operator-supplied) + `identity` (resolved
+  library name) + `sidecar` (path of the sidecar used).
+- `rigs/labels/jethalal.labels.json` — worked example committed
+  to the repo. Maps the 7 turnaround angles of the rigger's
+  `JETHALAL_Turnaround_FINAL.fla` to operator labels (front /
+  front_3q_l / front_3q_r / side_r / back_3q_r / back /
+  back_3q_l).
+
+**Tests (349 unit tests; +43 from Phase 3p-docs's 306):**
+
+- `test_rig_labels.py` — 23 tests: schema validation, DOMDocument.xml
+  parser (synthetic XML + namespace handling + ignoring non-graphic
+  symbols), the lenient zip reader (normal + oversized-CD variants),
+  sidecar load/save/round-trip, identity resolution (label-match,
+  direct-name pass-through, unknown→None, corrupt-JSON-graceful-
+  pass-through), plus a real-Jethalal-rig integration test that
+  parses to exactly 7 placements (skipped on machines without the
+  operator's character pack).
+- `test_rig_labeler_cli.py` — 15 tests: `--init` (writes sidecar,
+  rejects missing rig, refuses overwrite without `--force`, custom
+  sidecar path, force overwrite, requires `--character`),
+  `--verify` (passes when filled, fails when empty, missing
+  sidecar, filename-mismatch warning), `--list` (prints
+  placements), argparse mutual-exclusion enforcement.
+- `test_orchestrator.py` — updated `test_rig_path_calls_import_character_rig`
+  to verify the angle flows through as the handler's `identity` arg;
+  added `test_rig_path_default_angle_is_front`.
+
+**Phase 3o-adapter done criteria**: the labeler CLI generates a
+sidecar from any real production rig; verify passes once labels
+are filled; identity-resolution end-to-end against the worked
+JETHALAL example returns the correct obfuscated names. 349 unit
+tests pass on the operator's primary machine.
+
+**What this unblocks:** Phase 3o-validation no longer needs a
+rigger commission — the operator already has 31 production rigs.
+The remaining work is end-to-end smoke (Animate.exe round-trip) +
+documenting any JSFL edge cases that surface against real rig
+content.
+
+---
+
 ### Phase 3o-validation — First real-rig validation (Jethalal)
 
-**Status:** Pending — **external blocker: rigger commission**
+**Status:** Pending — rigs received 2026-05-17 (31 character .fla
+files at `C:/Users/Omkar Hajare/Downloads/CHARACTER/CHARACTER/`);
+JETHALAL labels sidecar committed in Phase 3o-adapter. The original
+external blocker (rigger commission) is RESOLVED; remaining work is
+the end-to-end Animate.exe smoke run + any JSFL fixups that surface.
 
 **Ships:**
 

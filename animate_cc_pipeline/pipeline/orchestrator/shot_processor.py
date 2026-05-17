@@ -184,17 +184,19 @@ async def _import_character(cfg: ShotConfig, char: CharacterConfig, assembly: Sh
         )
         step_name = f"import_character[{char.identity}]_placeholder"
     elif char.has_rig():
-        # Production path (Phase 3o-code). Rig import lands the
-        # whole character library in the target doc and places
-        # an instance at the canvas center. Phase 3o-validation
-        # is the external follow-up that verifies this against
-        # a real rigger-delivered Jethalal.fla.
+        # Production path (Phase 3o-code + 3o-adapter). Rig import
+        # lands the whole character library in the target doc and
+        # places an instance at the canvas center. The `identity`
+        # we pass to the handler is the angle label (e.g. "front")
+        # — the handler resolves it via the rig's labels.json
+        # sidecar (Phase 3o-adapter) to the actual library symbol
+        # name before calling JSFL.
         ok, payload = await _call_tool(
             document_tools.handle_import_character_rig,
             {
                 "fla_path": str(cfg.fla_out_path),
                 "rig_fla_path": str(char.rig_fla_path),
-                "identity": char.identity,
+                "identity": char.angle,
                 "layer_name": layer_name,
                 "frame": 1,
                 "x": cfg.width / 2,

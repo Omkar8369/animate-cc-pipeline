@@ -15,6 +15,9 @@ Main code for the Animate CC Pipeline.
     phase-correlation camera-move detection, emits camera_moves.json (3m)
   - `batch_runner.py` + `cli_batch.py` — production batch driver with
     retry policy + JSONL progress + aggregate BatchReport (3n)
+  - `rig_labels.py` — XFL-zip parser + per-rig labels.json sidecar
+    schema + identity resolution. Works around Adobe's non-standard
+    EOCD; pure-Python, no Animate needed (3o-adapter)
   - `orchestrator/`:
     - `assembly_schemas.py` `ShotConfig` + `ShotAssembly`
     - `shot_processor.py` per-shot driver (3l)
@@ -59,20 +62,21 @@ Main code for the Animate CC Pipeline.
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
 
-As of Phase 3p-docs (2026-05-17): the environment validator
-(`tools/phase3/validate_phase3_env.py`) is shipped with 30 unit
-tests; canonical files cross-checked and reconciled with as-shipped
-reality. Operators run the validator before bringup on a new
-machine to surface missing deps, wrong Animate.exe path, broken
-settings.local.json, etc. before the first end-to-end attempt.
+As of Phase 3o-adapter (2026-05-17): rig label sidecars (a small
+JSON file per rig that maps human-readable angle labels like
+`front` / `side_l` / `back` to the rigger's obfuscated library
+symbol names) are shipped. The pipeline now consumes the 31
+production rigs the operator received without renaming any of
+the rigger's symbols. The labeler CLI generates a placeholder
+sidecar from any .fla and verifies operator-filled labels.
 
-Prior milestone (Phase 3o-code, also 2026-05-17): the rig-consuming
-MCP tool `import_character_rig` shipped — `shot_processor` now
-imports a character rig's full library into the target .fla and
-places an instance on the timeline when `CharacterConfig.rig_fla_path`
-is set. MCP tool count: 27. SERVER_VERSION: 0.9.0.
+Prior milestones (also 2026-05-17): Phase 3p-docs shipped
+`tools/phase3/validate_phase3_env.py` (environment validator with
+10 checks + 30 unit tests). Phase 3o-code shipped
+`import_character_rig` (MCP tool count 27; SERVER_VERSION 0.9.0).
 
 Remaining work is Phase 3o-validation (real Jethalal rig +
-end-to-end smoke; gated on operator commissioning a rigger) and
-Phase 3p-validation (first real 22-min episode + production
-sign-off; gated on 3o-validation).
+end-to-end Animate.exe smoke run — the prior "rigger commission"
+blocker is RESOLVED since rigs were received) and Phase
+3p-validation (first real 22-min episode + production sign-off;
+gated on 3o-validation).

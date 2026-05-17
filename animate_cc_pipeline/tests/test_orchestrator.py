@@ -233,14 +233,18 @@ def test_failure_in_create_document_aborts_processing(monkeypatch, tmp_path):
 
 
 def test_rig_path_calls_import_character_rig(mock_handlers, tmp_path):
-    """Phase 3o-code: a CharacterConfig with rig_fla_path triggers
-    import_character_rig (instead of the warning-and-skip from
-    earlier phases). The character is counted as assembled."""
+    """Phase 3o-code + 3o-adapter: a CharacterConfig with rig_fla_path
+    triggers import_character_rig (instead of the warning-and-skip
+    from earlier phases). The character is counted as assembled.
+    The handler's `identity` arg is the angle (resolved against the
+    rig's labels.json sidecar inside the handler) — the on-canvas
+    layer name is the character's display name."""
     from animate_cc_pipeline.pipeline.orchestrator.shot_processor import process_shot
 
     char = CharacterConfig(
         identity="JETHALAL",
         rig_fla_path=tmp_path / "jethalal.fla",
+        angle="side_l",
     )
     cfg = ShotConfig(
         shot_id="shot_w",
@@ -250,12 +254,34 @@ def test_rig_path_calls_import_character_rig(mock_handlers, tmp_path):
     assembly = asyncio.run(process_shot(cfg))
     tool_names = [c[0] for c in mock_handlers]
     assert "import_character_rig" in tool_names
-    # The rig-import call passed identity + rig_fla_path
     rig_call = next(c for c in mock_handlers if c[0] == "import_character_rig")
-    assert rig_call[1]["identity"] == "JETHALAL"
+    # identity arg = the angle to resolve via sidecar
+    assert rig_call[1]["identity"] == "side_l"
+    # layer_name = the character's display name
+    assert rig_call[1]["layer_name"] == "JETHALAL"
     assert rig_call[1]["rig_fla_path"].endswith("jethalal.fla")
     # Character is now ASSEMBLED (Phase 3o-code unblocks this)
     assert assembly.characters_assembled == 1
+
+
+def test_rig_path_default_angle_is_front(mock_handlers, tmp_path):
+    """When CharacterConfig.angle isn't set, the default 'front'
+    is passed as the identity to the rig handler."""
+    from animate_cc_pipeline.pipeline.orchestrator.shot_processor import process_shot
+
+    char = CharacterConfig(
+        identity="JETHALAL",
+        rig_fla_path=tmp_path / "jethalal.fla",
+        # angle omitted -> default "front"
+    )
+    cfg = ShotConfig(
+        shot_id="shot_w",
+        fla_out_path=tmp_path / "w.fla",
+        characters=[char],
+    )
+    asyncio.run(process_shot(cfg))
+    rig_call = next(c for c in mock_handlers if c[0] == "import_character_rig")
+    assert rig_call[1]["identity"] == "front"
 
 
 def test_rig_path_warns_when_instance_not_placed(monkeypatch, tmp_path):

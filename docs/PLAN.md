@@ -234,6 +234,10 @@ error (bad config, can't write report, etc.).
   (Phase 3o-code), which calls `doc.importFile(rig_fla_path, true)`
   to land the whole rig library in the target doc, then places an
   instance of the identity MovieClip on a fresh layer.
+- Production rigs use obfuscated symbol names; the orchestrator
+  passes operator-friendly angle labels (`front`, `side_l`, ...)
+  that the handler resolves via `<rig>.labels.json` sidecars
+  (Phase 3o-adapter; tooling: `tools/phase3/rig_labeler.py`).
 - Pre-Node-7 check: validate every `rigFilename` in `queue.json`
   passes `rig_validator.py`
 - In-line pose detection + camera-move detection are NOT auto-chained;
@@ -255,6 +259,10 @@ operations as tools:
 - `import_video_as_layer(fla_path, mp4_path, layer_name, frame)` (3c)
 - `import_image_as_layer(fla_path, image_path, layer_name, frame)` (3c)
 - `import_character_rig(fla_path, rig_fla_path, identity, layer_name, frame, x, y)` (3o-code)
+  - `identity` is resolved against `<rig>.labels.json` sidecar
+    (Phase 3o-adapter) — operator passes a human-readable angle
+    label like `front` and the handler maps it to the actual
+    obfuscated library symbol name before calling JSFL.
 
 ### Symbol placement (Phase 3d)
 
