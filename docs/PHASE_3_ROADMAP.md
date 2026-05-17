@@ -782,14 +782,42 @@ Wall time ~140-180s for smoke (8-10 Animate launches).
 
 ### Phase 3m — Camera move detection
 
-**Status:** Pending
+**Status:** In progress (2026-05-17)
 
-**Ships:**
+**Scope** (tight — keeps the pipeline simple):
 
-- Frame-correlation analysis of rough MP4 → pan/zoom/rotation
-  estimates per frame
-- Wired into Node 7 → camera keyframes auto-set
-- 4-6 tests
+- `pipeline/camera_detector.py`:
+  - `CameraState` pydantic model: per-frame camera transform
+    (cumulative x, y, zoom, rotation, confidence).
+  - `CameraMovesMap` pydantic model: schemaVersion + shot_id +
+    list of CameraState entries.
+  - `detect_translation(frame_a, frame_b) -> tuple[float, float, float]`
+    — uses `cv2.phaseCorrelate` on grayscale float32 frames.
+    Returns `(dx, dy, confidence)`.
+  - `detect_camera_moves_from_frames(frame_paths, shot_id)` —
+    pairs consecutive frames, accumulates deltas, returns
+    CameraMovesMap.
+- `pipeline/cli_camera_detector.py` — CLI: takes a frames dir,
+  writes camera_moves.json.
+- `run_camera_detect.py` — repo-root wrapper.
+- `tests/test_camera_detector.py` — synthetic frame tests with
+  known shifts (np.roll), confidence sanity checks, accumulation
+  correctness.
+
+**Deferred (Phase 3m-fixup or 3n)**:
+
+- Zoom + rotation detection — harder + less critical for sitcom
+  content (mostly pans). Translation alone covers ~80% of TMKOC
+  camera moves. The CameraState model already has zoom + rotation
+  fields with defaults so future detection backends can populate
+  them.
+- Orchestrator integration — ShotConfig.camera_moves_path +
+  shot_processor calling set_camera_position per frame. Ships
+  alongside the production batch runner (Phase 3n).
+
+**Phase 3m done criteria**: detection module produces correct
+translations on synthetic shifted-frame pairs; CLI writes a valid
+camera_moves.json. Pure-Python module, no Animate. ~15 unit tests.
 
 ---
 
