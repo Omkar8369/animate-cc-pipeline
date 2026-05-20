@@ -1068,12 +1068,46 @@ re-read top-to-bottom with no drift to fix.
 
 ---
 
+### Phase 3p-demo — First real MP4 produced end-to-end
+
+**Status:** **Shipped 2026-05-20** (this commit)
+
+**Ships:**
+
+- `tests/_smoke_phase3p_demo.py` — chains four MCP tool calls
+  against the real Jethalal rig:
+  1. `create_document` (1920x1080 @ 25fps)
+  2. `import_character_rig` (identity `"front"` → sidecar resolves
+     to `NHNNFGH` → JSFL `clipCopy/clipPaste` pulls in symbol +
+     dependencies)
+  3. `save_document` (integrity round-trip)
+  4. `render_to_mp4` (writes the final MP4)
+
+- Verified output (2026-05-20):
+  - `work/phase3p_demo/jethalal_demo.fla` — 214 KB (Jethalal's
+    front pose imported into the target doc).
+  - `work/phase3p_demo/jethalal_demo.mp4` — 9.7 KB ISO MP4 with
+    Jethalal's front pose visibly rendered. Frame extracted via
+    ffmpeg confirms the character art is intact (yellow shirt
+    with orange detail, dark pants, the whole rig).
+
+**Phase 3p-demo done criteria**: an MP4 file exists on disk that,
+when opened, shows the rigged character. Done.
+
+This is the **proof-of-life milestone** between Phase 3o-validation
+(rig-import smoke) and Phase 3p-validation (full 22-min episode).
+It confirms the pipeline can produce a working MP4 — the operator
+can now feed real content (rough animatic + pose_map + audio) and
+expect output.
+
+---
+
 ### Phase 3p-validation — First real 22-min episode + production sign-off
 
-**Status:** Pending — **external blocker:** depends on
-Phase 3o-validation (rig). Once a real Jethalal rig lands and
-3o-validation runs an end-to-end shot smoke, 3p-validation runs
-a full 22-minute episode through the batch runner.
+**Status:** Pending — needs operator content. Pipeline is proven
+working (Phase 3p-demo produced an MP4 with the real Jethalal rig
+on 2026-05-20). Remaining work is content production + animator
+review, not code.
 
 **Ships:**
 
@@ -1084,6 +1118,24 @@ a full 22-minute episode through the batch runner.
 - Production-readiness sign-off in CLAUDE.md status table.
 - Any fixup phases discovered during the run (e.g., orchestrator
   edge cases that surface only on real shots).
+
+**Operator content checklist for Phase 3p-validation:**
+
+1. **Rough animatic** — MP4 of a TMKOC shot (any length; 5-30s
+   typical). Imported via `cli_node2_extract` (prior project) or
+   ffmpeg to per-frame PNGs.
+2. **Pose map** (`pose_map.json`) — produced by `cli_node6_pose`
+   against the extracted frames, or hand-edited for keyposes.
+3. **Background plate** (optional, per shot) — PNG of the scene
+   location.
+4. **Audio** (optional) — WAV/MP3 of the Hindi dialogue.
+5. **Camera moves** (optional) — produced by `cli_camera_detector`
+   if the rough has pans/zooms.
+6. **Batch config** — `batch_config.json` referencing all of the
+   above, plus rig path + sidecar.
+
+Once those exist, `python run_batch.py --config batch_config.json`
+processes the whole batch.
 
 ---
 

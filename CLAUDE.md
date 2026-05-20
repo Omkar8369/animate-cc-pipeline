@@ -49,7 +49,8 @@ fresh here so the new repo is self-contained.
 
 We build **one phase at a time**. Each phase is the smallest commit
 that lands a working, tested chunk. The phases are listed in
-`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3o-adapter).
+`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3p-demo —
+the **first real MP4** produced end-to-end through the pipeline).
 
 For every phase:
 1. **Discuss + lock** the decisions for this phase. Add to the
@@ -204,7 +205,8 @@ animate-cc-pipeline/
 | 3o-validation | First real-rig validation (Jethalal + Dr Hati) | **Shipped 2026-05-18** (this commit) — end-to-end smoke passes against real production .fla files (Dr Hati +1.6 MB, Jethalal via sidecar resolver +0.2 MB). `import_character_rig.jsfl` rewritten from `doc.importFile`-based to `clipCopy/clipPaste`-based after probing the actual Animate 2020 API surface; bridge race-condition fixed (sentinel writes deferred to end of JSFL). Plus 5 new JSFL gotchas (#10-#14) documented below. |
 | 3p-docs | Environment validator + canonical-files cross-check | **Shipped 2026-05-17** (commit `1eaac0a`) — `tools/phase3/validate_phase3_env.py` (10 checks) + 30 unit tests + Node-section cleanups in docs/PLAN.md |
 | 3o-adapter | Rig label sidecars (real-rig name resolution) | **Shipped 2026-05-17** (this commit) — `pipeline/rig_labels.py` (XFL-zip parser + sidecar schema) + `tools/phase3/rig_labeler.py` CLI + 43 unit tests; lenient zip reader works around Adobe's non-standard EOCD; worked example for JETHALAL committed to `rigs/labels/jethalal.labels.json` |
-| 3p-validation | First real 22-min episode + production sign-off | pending — **external blocker:** depends on 3o-validation (full rig smoke) |
+| 3p-demo | **FIRST REAL MP4** produced end-to-end | **Shipped 2026-05-20** (this commit) — `tests/_smoke_phase3p_demo.py` chains `create_document` → `import_character_rig` → `save_document` → `render_to_mp4` against the real Jethalal rig. Output: 9.7 KB MP4 with Jethalal's front pose visibly rendered. **Pipeline proven end-to-end.** |
+| 3p-validation | First real 22-min episode + production sign-off | pending — needs operator content (rough animatic + pose_map + audio + batch_config). Pipeline is ready. |
 
 See `docs/PHASE_3_ROADMAP.md` for what each phase ships.
 

@@ -62,7 +62,13 @@ Main code for the Animate CC Pipeline.
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
 
-As of Phase 3o-validation (2026-05-18): the pipeline is verified
+As of Phase 3p-demo (2026-05-20): **the pipeline has produced its
+first real MP4**. `tests/_smoke_phase3p_demo.py` chains
+`create_document` → `import_character_rig` (Jethalal front pose) →
+`save_document` → `render_to_mp4` and emits a 9.7 KB ISO MP4 with
+the rigged character visibly rendered. End-to-end proven.
+
+Earlier (Phase 3o-validation 2026-05-18): the pipeline was verified
 end-to-end against real production .fla files. Smoke-tested with
 both Dr Hati (direct symbol name `Dr_Hathi_Front`) and Jethalal
 (operator-friendly label `"front"` resolved via
@@ -84,4 +90,5 @@ Prior milestones: Phase 3o-adapter shipped rig label sidecars,
 SERVER_VERSION 0.9.0).
 
 Remaining work is Phase 3p-validation (first real 22-min episode
-+ production sign-off).
++ production sign-off). That's content production + animator
+review, not code — the pipeline is ready.

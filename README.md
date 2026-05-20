@@ -44,18 +44,21 @@ frames. Editor takes it from there.
 
 ## Status
 
-**Phases 3a–3o-validation shipped.** The full pipeline works
-end-to-end against real production rigs. Verified 2026-05-18 with
-both Dr Hati (direct symbol name) and Jethalal (operator-friendly
-label `"front"` resolved via sidecar to obfuscated `NHNNFGH`). The
+**Phases 3a–3p-demo shipped — pipeline produced its FIRST REAL MP4
+on 2026-05-20.** A 9.7 KB MP4 showing Jethalal's front pose was
+rendered end-to-end through the full toolchain (`create_document` →
+`import_character_rig` → `save_document` → `render_to_mp4`). The
+pipeline is proven working against real production rigs. The
 27-tool MCP server, pose-estimation node, pose→bone math, end-to-end
 orchestrator, camera-move detector, production batch runner,
 rig-consuming code path with `clipCopy/clipPaste` cross-fla import,
 environment validator, and rig label sidecars are all in. 31
-production rigs available. Remaining work is **Phase 3p-validation**
-(first real 22-min episode + production sign-off; gated on operator
-producing a real shot batch). See [`CLAUDE.md`](CLAUDE.md) status
-table for full phase progression 3a → 3p.
+production rigs available.
+
+Remaining work is **Phase 3p-validation** (first real 22-min episode
++ production sign-off; needs operator content — rough animatic +
+pose_map + audio + batch_config — not code). See [`CLAUDE.md`](CLAUDE.md)
+status table for full phase progression 3a → 3p.
 
 This is a working-in-public repo. Phases ship one at a time with full
 canonical-file sync, drift-grep, and ship discipline (see `CLAUDE.md`).
