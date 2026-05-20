@@ -448,8 +448,12 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
     from ...pipeline.rig_labels import resolve_identity_via_sidecar
 
     args = arguments or {}
-    fla_path = Path(args["fla_path"])
-    rig_fla_path = Path(args["rig_fla_path"])
+    # Resolve paths to absolute immediately — Animate's
+    # `FLfile.platformPathToURI` requires absolute paths or it
+    # returns an empty URI, which then trips
+    # `importFile: Argument number 1 is invalid` inside JSFL.
+    fla_path = Path(args["fla_path"]).resolve()
+    rig_fla_path = Path(args["rig_fla_path"]).resolve()
     identity_raw = str(args["identity"])
     layer_name = str(args.get("layer_name") or identity_raw)
     frame = int(args.get("frame", 1))
@@ -472,6 +476,13 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
 
     sentinel = _new_sentinel(fla_path)
     _safe_unlink(sentinel)
+    # Separate file for step-by-step JSFL diagnostics. The bridge
+    # polls for the SENTINEL to exist and force-kills Animate as
+    # soon as it does — so the JSFL writes progress events to
+    # `debug_log` (not tracked by the bridge) and only touches the
+    # sentinel once at the end.
+    debug_log = sentinel.with_suffix(".debug.log")
+    _safe_unlink(debug_log)
 
     template = JSFL_TEMPLATES_DIR / "import_character_rig.jsfl"
     result = jsfl_bridge.run_jsfl_template(
@@ -485,19 +496,25 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
             "X": x,
             "Y": y,
             "SENTINEL_PATH": _to_jsfl_path(sentinel),
+            "DEBUG_LOG_PATH": _to_jsfl_path(debug_log),
         },
         expected_outputs=[sentinel],
         poll_timeout=300.0,  # rig imports are heavier (whole library)
     )
 
-    # Read the sentinel content BEFORE unlinking — JSFL writes one
-    # of "done", "import_failed", "instance_not_placed".
+    # Read sentinel + debug log.
     sentinel_payload = ""
+    diagnostic_log = ""
     try:
         sentinel_payload = sentinel.read_text(encoding="utf-8").strip()
     except (OSError, FileNotFoundError):
         pass
+    try:
+        diagnostic_log = debug_log.read_text(encoding="utf-8")
+    except (OSError, FileNotFoundError):
+        pass
     _safe_unlink(sentinel)
+    _safe_unlink(debug_log)
 
     if not result.completed_normally:
         return [types.TextContent(
@@ -510,7 +527,7 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
         return [types.TextContent(
             type="text",
             text=_err(result, fla_path,
-                      f"JSFL importFile returned false for rig {rig_fla_path}"),
+                      f"JSFL import returned false for rig {rig_fla_path}"),
         )]
 
     instance_placed = sentinel_payload == "done"
@@ -523,10 +540,12 @@ async def handle_import_character_rig(arguments: dict[str, Any] | None) -> list[
     }
     if sidecar_used is not None:
         payload_extra["sidecar"] = str(sidecar_used)
+    if diagnostic_log:
+        payload_extra["diagnostic_log"] = diagnostic_log
     if not instance_placed:
         payload_extra["warning"] = (
             f"library imported but instance of {identity!r} "
-            "was not placed on stage (symbol not found in rig library?)"
+            "was not placed on stage (see diagnostic_log)"
         )
     return [types.TextContent(
         type="text",

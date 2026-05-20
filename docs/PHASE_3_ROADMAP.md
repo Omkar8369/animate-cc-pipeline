@@ -975,29 +975,63 @@ content.
 
 ---
 
-### Phase 3o-validation — First real-rig validation (Jethalal)
+### Phase 3o-validation — First real-rig validation (Jethalal + Dr Hati)
 
-**Status:** Pending — rigs received 2026-05-17 (31 character .fla
-files at `C:/Users/Omkar Hajare/Downloads/CHARACTER/CHARACTER/`);
-JETHALAL labels sidecar committed in Phase 3o-adapter. The original
-external blocker (rigger commission) is RESOLVED; remaining work is
-the end-to-end Animate.exe smoke run + any JSFL fixups that surface.
+**Status:** **Shipped 2026-05-18** (this commit)
 
 **Ships:**
 
-- A real Jethalal rig built by a freelance rigger conforming to
-  `RIG_SPEC_v1`
-- `rig_validator` passes on `rigs/jethalal.fla`
-- End-to-end pipeline run on a real TMKOC shot featuring Jethalal
-  (using `run_batch.py`)
-- Identifies + documents any rig-contract gaps (e.g., mouth state
-  names that need adjusting, JSFL bugs in the freshly-written
-  `import_character_rig.jsfl` only surfacing against real
-  rig structure); fixup phase if needed.
+- `tests/_smoke_phase3o_validation.py` — end-to-end smoke that
+  creates a fresh target .fla, imports a symbol from a real
+  production rig, and verifies the instance lands on stage at the
+  requested (x, y). Accepts `--rig` and `--identity` CLI args.
+- Verified working against TWO production rigs:
+  - **Dr Hati** (`Dr_Hathi_Front` direct symbol name): +1.6 MB
+    library import + instance placed at stage center.
+  - **Jethalal** (operator-friendly label `"front"` resolved via
+    `rigs/labels/jethalal.labels.json` to obfuscated `NHNNFGH`):
+    +0.2 MB symbol + dependencies + instance placed.
 
-**Phase 3o-validation is gated on the operator's rigger delivering
-the rig.** The code half (Phase 3o-code) is already shipped so when
-the rig arrives no new code is needed before smoke-testing.
+**Major rewrite of `import_character_rig.jsfl` (v1 → v6):**
+
+The original Phase 3o-code JSFL used `doc.importFile(rigUri, true)`
+which Adobe documents as "import to library". Smoke-testing against
+real production rigs showed this API is for MEDIA imports only
+(PNG/MP4/WAV) and rejects .fla files. Three attempts at alternative
+APIs (`library.addItemFromExternalLibrary`, `fl.copyLibraryItem`)
+failed — see Gotchas #10-#12 in CLAUDE.md. The working pattern,
+discovered via systematic JSFL API probes, is:
+
+1. Open the rig in Animate via `fl.openDocument`.
+2. Place an instance of the desired symbol on a fresh layer in the
+   rig itself.
+3. Set selection to that single instance and call
+   `rigDoc.clipCopy()`.
+4. Open the target document.
+5. Add a fresh layer on the target.
+6. Call `targetDoc.clipPaste()` — this copies the instance AND
+   brings all its library dependencies across.
+
+**Bridge race-condition fix:**
+
+The `jsfl_bridge` polls for the sentinel file's existence as the
+"JSFL completed" signal. Mid-script `FLfile.write` to the sentinel
+triggered a premature force-kill. Fixed by routing debug logs to a
+separate `<sentinel>.debug.log` file; the sentinel itself is
+written only at the very end of the JSFL.
+
+**Five new JSFL gotchas documented in CLAUDE.md** (#10-#14):
+
+- #10 `doc.importFile(uri, true)` rejects production .fla files
+- #11 `library.addItemFromExternalLibrary` doesn't exist in 2020
+- #12 `fl.copyLibraryItem` is clipboard-only with no paste counterpart
+- #13 The working cross-fla pattern is stage instance + `clipCopy/clipPaste`
+- #14 `Timeline.addNewLayer` does NOT always put the new layer at `[0]`
+- (plus #15 the bridge sentinel-race fix)
+
+**Phase 3o-validation done criteria**: smoke passes against real
+.fla files using both direct symbol names AND sidecar-resolved
+obfuscated names. Done.
 
 ---
 

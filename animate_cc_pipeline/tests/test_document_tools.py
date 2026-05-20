@@ -371,7 +371,7 @@ def test_import_character_rig_jsfl_import_failed(monkeypatch, tmp_path):
     }))
     payload = json.loads(result[0].text)
     assert payload["status"] == "error"
-    assert "importFile returned false" in payload["error"]
+    assert "import returned false" in payload["error"]
 
 
 def test_import_character_rig_instance_not_placed(monkeypatch, tmp_path):

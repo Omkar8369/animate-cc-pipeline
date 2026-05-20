@@ -44,23 +44,23 @@ frames. Editor takes it from there.
 
 ## Status
 
-**Phases 3a–3n + 3o-code + 3p-docs + 3o-adapter shipped.** The MCP
-server (27 tools, incl. `import_character_rig`), pose-estimation
-node, pose→bone math, end-to-end orchestrator, camera-move detector,
-production batch runner, rig-consuming code path, environment
-validator, and rig label sidecars (which adapt the rigger's
-obfuscated symbol names to operator-friendly labels) are all in. 31
-production rigs received from the rigger on 2026-05-17. Remaining
-work is Phase 3o-validation (real Jethalal end-to-end Animate.exe
-smoke run) and Phase 3p-validation (first real 22-min episode +
-production sign-off; gated on 3o-validation). See
-[`CLAUDE.md`](CLAUDE.md) status table for full phase progression
-3a → 3p.
+**Phases 3a–3o-validation shipped.** The full pipeline works
+end-to-end against real production rigs. Verified 2026-05-18 with
+both Dr Hati (direct symbol name) and Jethalal (operator-friendly
+label `"front"` resolved via sidecar to obfuscated `NHNNFGH`). The
+27-tool MCP server, pose-estimation node, pose→bone math, end-to-end
+orchestrator, camera-move detector, production batch runner,
+rig-consuming code path with `clipCopy/clipPaste` cross-fla import,
+environment validator, and rig label sidecars are all in. 31
+production rigs available. Remaining work is **Phase 3p-validation**
+(first real 22-min episode + production sign-off; gated on operator
+producing a real shot batch). See [`CLAUDE.md`](CLAUDE.md) status
+table for full phase progression 3a → 3p.
 
 This is a working-in-public repo. Phases ship one at a time with full
 canonical-file sync, drift-grep, and ship discipline (see `CLAUDE.md`).
 
-## Quick start (works today for pure-Python paths; .fla / MP4 work needs a rigger-delivered rig per Phase 3o-validation)
+## Quick start (validated end-to-end 2026-05-18)
 
 ```bash
 # 1. Install Adobe Animate CC (2020 or later) on Windows

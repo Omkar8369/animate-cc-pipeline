@@ -62,21 +62,26 @@ Main code for the Animate CC Pipeline.
 
 See `docs/PHASE_3_ROADMAP.md` for what's shipped vs pending.
 
-As of Phase 3o-adapter (2026-05-17): rig label sidecars (a small
-JSON file per rig that maps human-readable angle labels like
-`front` / `side_l` / `back` to the rigger's obfuscated library
-symbol names) are shipped. The pipeline now consumes the 31
-production rigs the operator received without renaming any of
-the rigger's symbols. The labeler CLI generates a placeholder
-sidecar from any .fla and verifies operator-filled labels.
+As of Phase 3o-validation (2026-05-18): the pipeline is verified
+end-to-end against real production .fla files. Smoke-tested with
+both Dr Hati (direct symbol name `Dr_Hathi_Front`) and Jethalal
+(operator-friendly label `"front"` resolved via
+`rigs/labels/jethalal.labels.json` to the obfuscated `NHNNFGH`).
+Both runs successfully imported the rig's symbol + dependencies
+into a fresh target .fla and placed the instance on stage.
 
-Prior milestones (also 2026-05-17): Phase 3p-docs shipped
-`tools/phase3/validate_phase3_env.py` (environment validator with
-10 checks + 30 unit tests). Phase 3o-code shipped
-`import_character_rig` (MCP tool count 27; SERVER_VERSION 0.9.0).
+The `import_character_rig.jsfl` was rewritten from a `doc.importFile`-
+based approach to a `clipCopy/clipPaste`-based approach (the
+documented `library.addItemFromExternalLibrary` and
+`fl.copyLibraryItem` APIs don't actually do cross-fla import in
+Animate 2020 — see CLAUDE.md gotchas #10-#14 for the full
+investigation). Plus a JSFL bridge race-condition fix
+(sentinel writes deferred to end-of-script).
 
-Remaining work is Phase 3o-validation (real Jethalal rig +
-end-to-end Animate.exe smoke run — the prior "rigger commission"
-blocker is RESOLVED since rigs were received) and Phase
-3p-validation (first real 22-min episode + production sign-off;
-gated on 3o-validation).
+Prior milestones: Phase 3o-adapter shipped rig label sidecars,
+3p-docs shipped the environment validator (`validate_phase3_env.py`),
+3o-code shipped `import_character_rig` (MCP tool count 27;
+SERVER_VERSION 0.9.0).
+
+Remaining work is Phase 3p-validation (first real 22-min episode
++ production sign-off).

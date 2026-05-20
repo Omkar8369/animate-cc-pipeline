@@ -281,6 +281,39 @@ def sidecar_path_for(rig_fla_path: Path) -> Path:
     return rig_fla_path.with_suffix(rig_fla_path.suffix + ".labels.json")
 
 
+def repo_labels_dir() -> Path:
+    """Canonical in-repo location for committed labels files.
+
+    Rigs themselves are typically NOT in the repo (large .fla files
+    live in the operator's local storage). But the small labels.json
+    sidecars ARE checked in — under `rigs/labels/<name>.labels.json`.
+    """
+    return Path(__file__).resolve().parent.parent.parent / "rigs" / "labels"
+
+
+def find_committed_sidecar(rig_fla_path: Path) -> Optional[Path]:
+    """Search `<repo>/rigs/labels/*.labels.json` for a sidecar whose
+    `rig_fla_filename` field matches the given rig's filename. Returns
+    the matching path or None.
+
+    This is the fallback the resolver uses when the operator keeps
+    their rig outside the repo (the common case for large .fla files
+    in production) — the sidecar still lives in-repo.
+    """
+    labels_dir = repo_labels_dir()
+    if not labels_dir.exists():
+        return None
+    target_name = rig_fla_path.name
+    for candidate in sorted(labels_dir.glob("*.labels.json")):
+        try:
+            data = candidate.read_text(encoding="utf-8")
+            if f'"rig_fla_filename": "{target_name}"' in data:
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
 def load_labels(sidecar_path: Path) -> RigLabels:
     """Load a sidecar from disk."""
     if not sidecar_path.exists():
@@ -336,10 +369,21 @@ def resolve_identity_via_sidecar(
 
     No exceptions: callers can rely on a graceful pass-through if
     no sidecar / unmatched label.
+
+    Lookup order:
+      1. `<rig>.labels.json` next to the .fla itself (operator's
+         convenience location).
+      2. `<repo>/rigs/labels/<name>.labels.json` matched by
+         the `rig_fla_filename` field (the canonical in-repo
+         committed copy — used when rigs live outside the repo).
     """
     sidecar = sidecar_path_for(rig_fla_path)
     if not sidecar.exists():
-        return (identity, None)
+        # Fallback: search in-repo committed sidecars
+        committed = find_committed_sidecar(rig_fla_path)
+        if committed is None:
+            return (identity, None)
+        sidecar = committed
     try:
         labels = load_labels(sidecar)
     except Exception as exc:

@@ -179,27 +179,46 @@ force-kill pattern from Phase 3b. Each tool is stateless — opens
 .fla, performs one operation, saves, closes. Long-running Animate
 instance reuse is deferred to Phase 3i.
 
-### Phase 3o-code shipped tool (in detail)
+### Phase 3o-code + 3o-validation shipped tool (in detail)
 
 | Tool | Action | Wall time |
 |------|--------|-----------|
-| `import_character_rig(fla_path, rig_fla_path, identity, layer_name, frame, x, y)` | Import the rig .fla's library into the target doc (library-only, no stage placement), add a fresh top-level layer, place an instance of the `identity` MovieClip on the requested frame at (x, y). Per `RIG_SPEC_v1` the rig .fla must contain a MovieClip at library root whose name matches `identity` exactly. | ~25-35s (heavier than single-asset imports — the whole rig library lands in the target doc) |
+| `import_character_rig(fla_path, rig_fla_path, identity, layer_name, frame, x, y)` | Open the rig .fla and the target .fla, place an instance of the `identity` symbol on a temp layer in the rig, copy it via `clipCopy`, paste into target via `clipPaste` (which brings the symbol + all its library dependencies across), then reposition to (x, y) on the requested frame. | ~30-45s (two Animate document opens + clipboard transfer) |
 
-**Sentinel contract**: the JSFL writes one of three payloads:
+**Sentinel contract**: the JSFL writes one of three payloads to a
+SEPARATE `<sentinel>.debug.log` for step-by-step diagnostics and
+writes the canonical outcome to the sentinel ONLY at the very end
+of the script (to avoid the bridge's "sentinel exists ⇒ JSFL done"
+race condition causing premature Animate force-kill):
 
-- `"done"` — library imported, instance placed (instance_placed=true)
-- `"import_failed"` — `doc.importFile` returned false; handler returns status=error
-- `"instance_not_placed"` — library imported but `lib.addItemToDocument` couldn't find the identity symbol; handler returns status=ok with a warning + `instance_placed=false` so the orchestrator can skip the character cleanly.
+- `"done"` — clipPaste landed an element on target's stage
+- `"import_failed"` — `fl.openDocument` returned null for the rig
+- `"instance_not_placed"` — clipPaste ran but no element appeared on the target frame (symbol not in rig library, or paste failed silently)
 
-**JSFL approach**: `doc.importFile(uri, true)` is Animate's
-library-only import path — it pulls the whole .fla's library into
-the target doc without putting anything on stage. We then add a new
-layer + convertToKeyframes at the target frame + call
-`lib.addItemToDocument({x, y}, identity)` to drop the instance.
+**JSFL approach (Phase 3o-validation rewrite)**: Animate 2020 has
+no working API for direct symbol import from one .fla into another:
 
-Phase 3o-code ships the tool but Phase 3o-validation (gated on
-real rigger delivery) is what proves the JSFL works against actual
-RIG_SPEC_v1-compliant `.fla` files in the wild.
+- `doc.importFile(uri, true)` is documented as "import to library" but only handles MEDIA (PNG/MP4/WAV/etc.); it rejects .fla files.
+- `library.addItemFromExternalLibrary` is documented in Flash CS5/CS6 but does NOT exist on Animate 2020's Library object (typeof check returns `"undefined"`).
+- `fl.copyLibraryItem(uri, itemName)` returns true but copies to the OS clipboard only with no paste counterpart at the library level — useless for automation.
+
+The working pattern uses stage-level clipboard ops:
+
+1. `fl.openDocument(rigUri)` (same code path as File → Open; tolerates the rigger's non-standard zip layout that the import APIs reject).
+2. `addNewLayer` on rig + `library.addItemToDocument({x:0,y:0}, identity)` to place an instance on a temp layer.
+3. `rigDoc.selection = [the placed element]` then `rigDoc.clipCopy()`.
+4. `fl.openDocument(targetUri)`.
+5. `addNewLayer` on target + position at the requested frame.
+6. `targetDoc.clipPaste()` — brings the instance AND its full library dependency tree across.
+7. Reposition the pasted instance to (x, y).
+
+**CRITICAL**: track layer indices via `addNewLayer`'s return value
+(don't assume `layers[0]` is the new layer). Production rigs have 6-9
+pre-existing layers (one per turnaround pose); `addNewLayer` lands at
+index 6+, not 0. See Gotcha #14 in CLAUDE.md.
+
+Verified end-to-end against real production rigs (Dr Hati, Jethalal)
+on 2026-05-18.
 
 **Phase 3o-adapter (sidecar identity resolution)**: production rigs
 from the operator's rigger use obfuscated library symbol names. The

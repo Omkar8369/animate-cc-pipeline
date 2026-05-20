@@ -201,7 +201,7 @@ animate-cc-pipeline/
 | 3m | Camera move detection | **Shipped 2026-05-17** (commit `21b9886`) — 22 unit tests; phase correlation via cv2 + pure-numpy FFT fallback; `camera_moves.json` schema + CLI |
 | 3n | Production batch runner | **Shipped 2026-05-17** (commit `fcfa265`) — 27 unit tests; retry policy, JSONL progress, `BatchReport`, camera_moves orchestrator wiring |
 | 3o-code | `import_character_rig` MCP tool + orchestrator wiring | **Shipped 2026-05-17** (commit `9ca8f76`) — 8 new handler tests + orchestrator test flip; tool count 26 → 27; SERVER_VERSION 0.8.0 → 0.9.0 |
-| 3o-validation | First real-rig validation (Jethalal) | pending — rigs received 2026-05-17 (31 chars at `C:/.../CHARACTER/CHARACTER/`); labeled `jethalal.labels.json` worked example shipped in 3o-adapter; awaiting end-to-end smoke run |
+| 3o-validation | First real-rig validation (Jethalal + Dr Hati) | **Shipped 2026-05-18** (this commit) — end-to-end smoke passes against real production .fla files (Dr Hati +1.6 MB, Jethalal via sidecar resolver +0.2 MB). `import_character_rig.jsfl` rewritten from `doc.importFile`-based to `clipCopy/clipPaste`-based after probing the actual Animate 2020 API surface; bridge race-condition fixed (sentinel writes deferred to end of JSFL). Plus 5 new JSFL gotchas (#10-#14) documented below. |
 | 3p-docs | Environment validator + canonical-files cross-check | **Shipped 2026-05-17** (commit `1eaac0a`) — `tools/phase3/validate_phase3_env.py` (10 checks) + 30 unit tests + Node-section cleanups in docs/PLAN.md |
 | 3o-adapter | Rig label sidecars (real-rig name resolution) | **Shipped 2026-05-17** (this commit) — `pipeline/rig_labels.py` (XFL-zip parser + sidecar schema) + `tools/phase3/rig_labeler.py` CLI + 43 unit tests; lenient zip reader works around Adobe's non-standard EOCD; worked example for JETHALAL committed to `rigs/labels/jethalal.labels.json` |
 | 3p-validation | First real 22-min episode + production sign-off | pending — **external blocker:** depends on 3o-validation (full rig smoke) |
@@ -489,9 +489,69 @@ them:
 - **Adobe CC is subscription, version-pinned.** If the operator
   upgrades to Animate 2024/2025, JSFL behavior should be backward-
   compatible; a future fixup phase will add a compatibility test
-  if regressions show up. Phase 3o-code's `import_character_rig`
-  uses `doc.importFile(uri, true)` which is documented in Animate
-  2018+ so it should survive an upgrade.
+  if regressions show up.
+
+### Phase 3o-validation gotchas (#10 - #14)
+
+- **Gotcha #10: `doc.importFile(uri, true)` rejects production .fla
+  files.** The `importFile` JSFL API is documented for MEDIA
+  (PNG/MP4/WAV/etc.) but its `importToLibrary` flag suggests it
+  ALSO works for cross-fla imports. In practice it does NOT — Animate
+  2020 rejects production .fla files with the modal "One or more
+  files were not imported because there were problems reading them."
+  The original Phase 3o-code `import_character_rig.jsfl` used this
+  API and had to be entirely rewritten. Discovered in Phase
+  3o-validation.
+
+- **Gotcha #11: `library.addItemFromExternalLibrary` does not exist
+  in Animate 2020.** Older Flash CS5/CS6 docs reference this method
+  but it has been removed (or never existed) in Animate 2020. A
+  direct probe of `typeof lib.addItemFromExternalLibrary` returns
+  `"undefined"`. Same for `library.copyLibraryItem`,
+  `library.importFromExternal*`, etc. The Library object in
+  Animate 2020 has NO cross-fla import method. Discovered in
+  Phase 3o-validation.
+
+- **Gotcha #12: `fl.copyLibraryItem(uri, itemName)` returns true
+  but copies to the OS clipboard only.** Adobe's docs describe it
+  as "Copies a library item to a clipboard." There is no JSFL
+  paste-from-clipboard counterpart at the library level
+  (`pasteLibraryItem` is undefined). Calling this function appears
+  to succeed (returns true) but the target document's library
+  stays empty. Useless for cross-fla automation. Discovered in
+  Phase 3o-validation.
+
+- **Gotcha #13: The correct cross-fla copy is via stage instance
+  + `doc.clipCopy()` / `doc.clipPaste()`.** The actual working
+  pattern in Animate 2020:
+  1. Open the source rig via `fl.openDocument(rigUri)`.
+  2. `addNewLayer` on rig, `library.addItemToDocument({x:0,y:0}, name)`
+     to place an instance of the desired symbol on the rig's stage.
+  3. Set `rigDoc.selection = [the placed element]`.
+  4. `rigDoc.clipCopy()`.
+  5. Open target via `fl.openDocument(targetUri)`.
+  6. `addNewLayer` on target, set current frame.
+  7. `targetDoc.clipPaste()` — this copies the instance AND brings
+     all its library dependencies across. Verified in Phase 3o-validation
+     against real production rigs (Dr Hati, Jethalal).
+
+- **Gotcha #14: `Timeline.addNewLayer` does NOT always put the new
+  layer at `layers[0]`.** The returned VALUE is the actual index of
+  the new layer — use that, not a hard-coded `[0]`. The rig docs we
+  imported had 9 existing layers (one per turnaround pose); after
+  `addNewLayer` the new layer landed at index 6, not 0. Same applies
+  to the target doc: don't assume `[0]` is your newly-added layer.
+  Pair this with the bridge gotcha below.
+
+- **Gotcha #15: The JSFL bridge polls for the sentinel file —
+  writing to it mid-script triggers a premature force-kill.** The
+  Phase 3b bridge's "sentinel exists ⇒ JSFL is done" semantics means
+  any `FLfile.write(sentinelUri, ...)` call before the actual end
+  of the script causes Animate to be killed mid-execution. Symptom:
+  diagnostic logs show only the first 1-2 step lines. Solution: use
+  a SEPARATE debug log file for mid-script writes; only touch the
+  sentinel at the very end of the JSFL. Discovered in Phase
+  3o-validation.
 - **GitHub user: Omkar8369.** Repo will be public once first pushed.
 - **RunPod EU-RO region** has the operator's persistent network
   volume (storyboard-models, 150 GB) from the prior project — same
