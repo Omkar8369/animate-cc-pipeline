@@ -115,25 +115,59 @@ async def _create_document(cfg: ShotConfig, assembly: ShotAssembly) -> bool:
     return ok
 
 
-async def _import_animatic_reference(cfg: ShotConfig, assembly: ShotAssembly) -> bool:
+async def _compute_animatic_duration(cfg: ShotConfig, assembly: ShotAssembly) -> bool:
+    """Phase 3p-fixup-1 replacement for `_import_animatic_reference`.
+
+    Adobe Animate 2020's MP4 import pops a modal wizard JSFL cannot
+    dismiss (Gotcha #16). So we don't embed the rough animatic in
+    the .fla — instead we ffprobe it to compute the frame count,
+    which we use to extend the document timeline later. The animator
+    references the rough externally (separate video player) during
+    the touch-up pass.
+
+    Result: `cfg.total_frames` is populated (if not already set).
+    """
+    from ..animatic_meta import probe_animatic
+
     if cfg.animatic_mp4_path is None:
-        assembly.steps.append(StepResult(step="import_animatic_reference", ok=True, note="skipped (no path)"))
+        assembly.steps.append(StepResult(
+            step="compute_animatic_duration", ok=True,
+            note="skipped (no animatic path)",
+        ))
         return True
+
     started = time.monotonic()
-    ok, payload = await _call_tool(
-        document_tools.handle_import_video_as_layer,
-        {
-            "fla_path": str(cfg.fla_out_path),
-            "mp4_path": str(cfg.animatic_mp4_path),
-            "layer_name": "REF_ANIMATIC",
-            "frame": 1,
-        },
-    )
-    step = (_step_ok if ok else _step_fail)("import_animatic_reference", started, payload.get("error", ""))
-    assembly.steps.append(step)
-    if not ok:
-        assembly.warnings.append(f"animatic reference failed: {payload.get('error', '?')}")
-    return True  # non-fatal
+    meta = probe_animatic(Path(cfg.animatic_mp4_path))
+    if meta is None:
+        assembly.steps.append(StepResult(
+            step="compute_animatic_duration", ok=False,
+            elapsed_seconds=time.monotonic() - started,
+            note=f"ffprobe failed for {cfg.animatic_mp4_path}",
+        ))
+        assembly.warnings.append(
+            f"could not probe animatic {cfg.animatic_mp4_path}; "
+            "timeline will not be extended"
+        )
+        return True  # non-fatal
+
+    derived_frames = meta.frame_count_at(cfg.fps)
+    if cfg.total_frames is None:
+        # Pydantic v2 models are immutable by default but ShotConfig
+        # doesn't lock that, so direct assignment works. (Verified
+        # by the test suite.)
+        cfg.total_frames = derived_frames
+
+    assembly.steps.append(StepResult(
+        step="compute_animatic_duration",
+        ok=True,
+        elapsed_seconds=time.monotonic() - started,
+        note=(
+            f"rough: {meta.duration_seconds:.2f}s @ {meta.fps:.1f}fps "
+            f"({meta.width}x{meta.height}); "
+            f"target.total_frames={cfg.total_frames} at {cfg.fps}fps"
+        ),
+    ))
+    return True
 
 
 async def _import_background(cfg: ShotConfig, assembly: ShotAssembly) -> bool:
@@ -436,6 +470,52 @@ async def _import_audio_and_lipsync(cfg: ShotConfig, assembly: ShotAssembly) -> 
     # best-effort and don't fail on its result.
 
 
+async def _extend_timeline(cfg: ShotConfig, assembly: ShotAssembly) -> None:
+    """Phase 3p-fixup-1: extend the document timeline to
+    `cfg.total_frames`.
+
+    We do this by inserting a keyframe at the target frame on the
+    LAST character's layer. `insert_keyframe` auto-extends the layer
+    (via `insertFrames` if needed) so the timeline grows to that
+    length. The keyframe inherits the previous frame's content
+    (Animate's default), so the character stays visible.
+    """
+    if cfg.total_frames is None or cfg.total_frames <= 1:
+        assembly.steps.append(StepResult(
+            step="extend_timeline", ok=True,
+            note=f"skipped (total_frames={cfg.total_frames})",
+        ))
+        return
+    if not cfg.characters:
+        assembly.steps.append(StepResult(
+            step="extend_timeline", ok=True,
+            note="skipped (no characters to extend)",
+        ))
+        return
+
+    # Use the first character's layer to extend the timeline.
+    target_layer = cfg.characters[0].identity
+    started = time.monotonic()
+    ok, payload = await _call_tool(
+        keyframe_tools.handle_insert_keyframe,
+        {
+            "fla_path": str(cfg.fla_out_path),
+            "layer_name": target_layer,
+            "frame": cfg.total_frames,
+        },
+    )
+    step = (_step_ok if ok else _step_fail)(
+        "extend_timeline",
+        started,
+        note=f"insert_keyframe(layer={target_layer!r}, frame={cfg.total_frames})",
+    )
+    assembly.steps.append(step)
+    if not ok:
+        assembly.warnings.append(
+            f"timeline extension failed: {payload.get('error', '?')}"
+        )
+
+
 async def _save_and_render(cfg: ShotConfig, assembly: ShotAssembly) -> bool:
     started = time.monotonic()
     ok, payload = await _call_tool(
@@ -496,8 +576,10 @@ async def process_shot(cfg: ShotConfig, rig_spec: Optional[RigSpec] = None) -> S
         assembly.total_elapsed_seconds = time.monotonic() - started
         return assembly
 
-    # 2. Animatic reference (optional)
-    await _import_animatic_reference(cfg, assembly)
+    # 2. Animatic duration (ffprobe) — replaces broken
+    # import_video_as_layer step. Sets cfg.total_frames so the
+    # timeline can be extended later. See Gotcha #16 in CLAUDE.md.
+    await _compute_animatic_duration(cfg, assembly)
 
     # 3. Background (optional)
     await _import_background(cfg, assembly)
@@ -524,7 +606,11 @@ async def process_shot(cfg: ShotConfig, rig_spec: Optional[RigSpec] = None) -> S
     assembly.characters_assembled = characters_assembled
     assembly.keyposes_processed = keyposes_processed_total
 
-    # 5. Camera moves (best-effort; Phase 3m → 3n integration)
+    # 5. Extend timeline to total_frames (so the rendered MP4 matches
+    # the rough animatic's duration even without pose-driven keyframes).
+    await _extend_timeline(cfg, assembly)
+
+    # 6. Camera moves (best-effort; Phase 3m → 3n integration)
     await _apply_camera_moves(cfg, assembly)
 
     # 6. Audio + lipsync (best-effort)

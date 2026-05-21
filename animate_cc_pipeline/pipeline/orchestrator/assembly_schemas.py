@@ -81,6 +81,17 @@ class ShotConfig(BaseModel):
     height: int = 1080
     fps: int = 25
 
+    total_frames: Optional[int] = None
+    """Override the document timeline length. If None and
+    `animatic_mp4_path` is set, the orchestrator computes this via
+    ffprobe (rough's duration × fps). Used to extend the timeline
+    so the rendered MP4 matches the rough's length.
+
+    Phase 3p-fixup-1: this replaces the broken
+    `import_video_as_layer` step. Adobe Animate 2020's MP4 import
+    pops a modal wizard that JSFL cannot dismiss (Gotcha #16); we
+    skip the actual import and just preserve the timing."""
+
 
 # ─── Outputs ──────────────────────────────────────────────────────
 

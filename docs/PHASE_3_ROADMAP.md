@@ -1102,6 +1102,58 @@ expect output.
 
 ---
 
+### Phase 3p-fixup-1 — Import-video wizard workaround + first real shot
+
+**Status:** **Shipped 2026-05-20** (this commit)
+
+**Background**: First attempt at running `run_batch.py` against a
+real TMKOC rough animatic (EP35 SH_216) revealed a hard blocker:
+Adobe Animate 2020's `doc.importFile(<mp4>, false)` ALWAYS pops a
+modal "Import Video" wizard that JSFL cannot dismiss. The bridge
+times out at 240s. Even `importFile(mp4, true)` (library-only)
+triggers the same wizard. Runtime probes confirmed no alternative
+MP4-import API exists in Animate 2020's JSFL surface.
+
+**Ships:**
+
+- `pipeline/animatic_meta.py` — ffprobe-based metadata extraction.
+  Reads duration + dimensions + fps from a rough MP4 without
+  touching Animate. Uses ffprobe if available, falls back to
+  parsing ffmpeg's stderr (imageio-ffmpeg ships only ffmpeg, not
+  ffprobe).
+- `ShotConfig.total_frames: Optional[int]` — override for the
+  document timeline length. Auto-populated from animatic duration
+  if not set.
+- Orchestrator `_compute_animatic_duration` step (replaces broken
+  `_import_animatic_reference`) — runs ffprobe pre-flight.
+- Orchestrator `_extend_timeline` step — inserts a keyframe at
+  `total_frames` on the first character's layer to extend the
+  document timeline.
+- `import_video_as_layer` MCP tool DEPRECATED — description now
+  warns of the wizard issue; tool retained so old callers fail
+  loudly rather than silently.
+- JSFL Gotcha #16 documented in CLAUDE.md.
+- 10 new unit tests in `tests/test_animatic_meta.py` (probe
+  success/failure paths, ffmpeg stderr parsing, real-MP4 smoke
+  against the Phase 3p-demo artifact). 359 unit tests total.
+
+**Verified end-to-end on 2026-05-20:**
+
+- `run_batch.py --config batch_config.json` against TMKOC EP35
+  SH_216 (0.88s rough animatic, 1280×720)
+- Batch time: **81 seconds** (was 5+ minutes on the broken video-
+  import path).
+- Output: 20 KB MP4, 22 frames, 1920×1080 @ 25fps, duration 0.88s
+  (matches rough exactly).
+- Jethalal "front" pose visibly rendered across all 22 frames.
+
+**Trade-off**: animator no longer sees the rough animatic embedded
+in the .fla. They open the rough externally in any video player
+during the touch-up pass. This is the only viable path because
+Animate's wizard cannot be dismissed programmatically.
+
+---
+
 ### Phase 3p-validation — First real 22-min episode + production sign-off
 
 **Status:** Pending — needs operator content. Pipeline is proven

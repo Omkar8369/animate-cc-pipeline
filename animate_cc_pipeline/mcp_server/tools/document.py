@@ -167,12 +167,15 @@ IMPORT_IMAGE_AS_LAYER_TOOL = types.Tool(
 IMPORT_VIDEO_AS_LAYER_TOOL = types.Tool(
     name="import_video_as_layer",
     description=(
-        "Open the .fla, add a new layer named layer_name, import an "
-        "MP4 as embedded video onto frame `frame` of that layer, "
-        "save and close. Used for animatic-reference layers. Note: "
-        "very long MP4s may exceed Animate's embedded-video limit "
-        "(~16k frames); for production keep clips under ~10 minutes. "
-        "Wall time ~20-30s."
+        "DEPRECATED (Phase 3p-fixup-1). Adobe Animate 2020's "
+        "`doc.importFile(<mp4>, false)` ALWAYS pops a modal "
+        "'Import Video' wizard that JSFL cannot dismiss; this tool "
+        "always hangs and is force-killed by the bridge. Use "
+        "`animatic_meta.probe_animatic()` (Python-side ffprobe) to "
+        "read the rough's duration instead; the orchestrator extends "
+        "the document timeline to match without embedding the MP4. "
+        "Animator references the rough externally during touch-up. "
+        "See CLAUDE.md JSFL Gotcha #16 for the full diagnosis."
     ),
     inputSchema={
         "type": "object",

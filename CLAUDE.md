@@ -49,8 +49,9 @@ fresh here so the new repo is self-contained.
 
 We build **one phase at a time**. Each phase is the smallest commit
 that lands a working, tested chunk. The phases are listed in
-`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3p-demo —
-the **first real MP4** produced end-to-end through the pipeline).
+`docs/PHASE_3_ROADMAP.md` (3a → 3p; this commit ships 3p-fixup-1 —
+the import-video wizard workaround that lets `run_batch.py` produce
+**a real shot MP4 matching the rough animatic's duration** end-to-end).
 
 For every phase:
 1. **Discuss + lock** the decisions for this phase. Add to the
@@ -205,7 +206,8 @@ animate-cc-pipeline/
 | 3o-validation | First real-rig validation (Jethalal + Dr Hati) | **Shipped 2026-05-18** (this commit) — end-to-end smoke passes against real production .fla files (Dr Hati +1.6 MB, Jethalal via sidecar resolver +0.2 MB). `import_character_rig.jsfl` rewritten from `doc.importFile`-based to `clipCopy/clipPaste`-based after probing the actual Animate 2020 API surface; bridge race-condition fixed (sentinel writes deferred to end of JSFL). Plus 5 new JSFL gotchas (#10-#14) documented below. |
 | 3p-docs | Environment validator + canonical-files cross-check | **Shipped 2026-05-17** (commit `1eaac0a`) — `tools/phase3/validate_phase3_env.py` (10 checks) + 30 unit tests + Node-section cleanups in docs/PLAN.md |
 | 3o-adapter | Rig label sidecars (real-rig name resolution) | **Shipped 2026-05-17** (this commit) — `pipeline/rig_labels.py` (XFL-zip parser + sidecar schema) + `tools/phase3/rig_labeler.py` CLI + 43 unit tests; lenient zip reader works around Adobe's non-standard EOCD; worked example for JETHALAL committed to `rigs/labels/jethalal.labels.json` |
-| 3p-demo | **FIRST REAL MP4** produced end-to-end | **Shipped 2026-05-20** (this commit) — `tests/_smoke_phase3p_demo.py` chains `create_document` → `import_character_rig` → `save_document` → `render_to_mp4` against the real Jethalal rig. Output: 9.7 KB MP4 with Jethalal's front pose visibly rendered. **Pipeline proven end-to-end.** |
+| 3p-demo | **FIRST REAL MP4** produced end-to-end | **Shipped 2026-05-20** (commit `32cf1f4`) — `tests/_smoke_phase3p_demo.py` chains `create_document` → `import_character_rig` → `save_document` → `render_to_mp4` against the real Jethalal rig. Output: 9.7 KB MP4 with Jethalal's front pose visibly rendered. **Pipeline proven end-to-end.** |
+| 3p-fixup-1 | Real-shot batch run (SH_216) + import-video workaround | **Shipped 2026-05-20** (this commit) — pipeline produces a **22-frame MP4 matching the rough animatic's duration** (0.88s of TMKOC EP35 SH_216). New `pipeline/animatic_meta.py` (ffprobe-based duration probe) + `ShotConfig.total_frames` + orchestrator `_compute_animatic_duration` and `_extend_timeline` steps. `import_video_as_layer` deprecated (Gotcha #16 — Animate's modal Import-Video wizard cannot be dismissed from JSFL). Batch time: **81s** (was 5+ min on broken video-import path). 10 new unit tests; 359 total. |
 | 3p-validation | First real 22-min episode + production sign-off | pending — needs operator content (rough animatic + pose_map + audio + batch_config). Pipeline is ready. |
 
 See `docs/PHASE_3_ROADMAP.md` for what each phase ships.
@@ -554,6 +556,24 @@ them:
   a SEPARATE debug log file for mid-script writes; only touch the
   sentinel at the very end of the JSFL. Discovered in Phase
   3o-validation.
+
+- **Gotcha #16: `doc.importFile(<mp4>, *)` is unusable from JSFL on
+  Animate 2020.** Both `importFile(mp4, false)` and
+  `importFile(mp4, true)` trigger Animate's modal "Import Video"
+  wizard ("Where is your video file? On your computer / Already
+  deployed to a web server / etc."). JSFL cannot dismiss this
+  wizard — `doc.importFile` blocks the entire JSFL execution until
+  a human clicks Cancel/OK in Animate's GUI. There is NO alternative
+  MP4 import API; runtime probes confirm `fl.importVideo`,
+  `fl.importVideoFile`, `doc.importVideoFile`, etc. are all
+  `undefined`. **Workaround (Phase 3p-fixup-1):** skip MP4 embed
+  entirely. Use `pipeline/animatic_meta.py:probe_animatic()` to
+  extract duration via ffprobe (Python-side); the orchestrator
+  extends the .fla timeline to match. The animator references the
+  rough MP4 externally (any video player) during touch-up. Tool
+  `import_video_as_layer` retained but marked DEPRECATED so old
+  callers fail loudly rather than silently. Discovered in
+  Phase 3p-validation against TMKOC SH_216.
 - **GitHub user: Omkar8369.** Repo will be public once first pushed.
 - **RunPod EU-RO region** has the operator's persistent network
   volume (storyboard-models, 150 GB) from the prior project — same
